@@ -222,4 +222,53 @@ public class UserCredentialService {
             throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);
         }
     }
+
+    /**
+     * Change password for a user.
+     * Verifies current password before updating to new password.
+     *
+     * @param userId          the user ID
+     * @param currentPassword the current plaintext password
+     * @param newPassword     the new plaintext password
+     * @throws UserCredentialException if current password is incorrect or update fails
+     */
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        // Validate inputs
+        if (userId == null) {
+            log.error("Password change failed: userId is null");
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
+        }
+
+        if (currentPassword == null || currentPassword.trim().isEmpty()) {
+            log.error("Password change failed: currentPassword is null or empty");
+            throw new UserCredentialException(UserCredentialErrorCode.INVALID_PASSWORD);
+        }
+
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            log.error("Password change failed: newPassword is null or empty");
+            throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_REQUIRED);
+        }
+
+        log.info("Attempting to change password for user: {}", userId);
+
+        try {
+            // Step 1: Verify current password
+            boolean isCurrentPasswordValid = verifyPassword(userId, currentPassword);
+            if (!isCurrentPasswordValid) {
+                log.warn("Password change failed: current password is incorrect for user: {}", userId);
+                throw new UserCredentialException(UserCredentialErrorCode.CURRENT_PASSWORD_MISMATCH);
+            }
+
+            // Step 2: Update to new password
+            updatePassword(userId, newPassword);
+            log.info("Password changed successfully for user: {}", userId);
+
+        } catch (UserCredentialException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error during password change for user {}: {}", userId, e.getMessage(), e);
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
+        }
+    }
 }

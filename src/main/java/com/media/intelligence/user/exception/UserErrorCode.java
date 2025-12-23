@@ -34,7 +34,10 @@ public enum UserErrorCode implements ErrorCode {
 
     // Update Errors
     UPDATE_FAILED("USR_010", "Failed to update user information", HttpStatus.INTERNAL_SERVER_ERROR),
-    CANNOT_DELETE_SELF("USR_011", "Cannot delete your own account", HttpStatus.BAD_REQUEST);
+    CANNOT_DELETE_SELF("USR_011", "Cannot delete your own account", HttpStatus.BAD_REQUEST),
+
+    // Delete Errors
+    DELETE_FAILED("USR_013", "Failed to delete user", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;

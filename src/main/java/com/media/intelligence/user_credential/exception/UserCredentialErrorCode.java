@@ -23,7 +23,8 @@ public enum UserCredentialErrorCode implements ErrorCode {
     INVALID_ALGORITHM("CRED_007", "Invalid hashing algorithm", HttpStatus.BAD_REQUEST),
     PASSWORD_REQUIRED("CRED_008", "Password is required", HttpStatus.BAD_REQUEST),
     PASSWORD_HASH_EMPTY("CRED_009", "Password hash cannot be null or empty", HttpStatus.BAD_REQUEST),
-    INVALID_PASSWORD_HASH("CRED_010", "Invalid password hash", HttpStatus.BAD_REQUEST);
+    INVALID_PASSWORD_HASH("CRED_010", "Invalid password hash", HttpStatus.BAD_REQUEST),
+    CURRENT_PASSWORD_MISMATCH("CRED_011", "Current password is incorrect", HttpStatus.UNAUTHORIZED);
 
     private final String code;
     private final String message;
