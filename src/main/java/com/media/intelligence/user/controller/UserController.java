@@ -1,6 +1,6 @@
 package com.media.intelligence.user.controller;
 
-import com.media.intelligence.common.dto.ApiResponse;
+import com.media.intelligence.common.dto.api_response.ApiResponse;
 import com.media.intelligence.user.dto.FindUserByEmailDTO;
 import com.media.intelligence.user.dto.RegisterUserDTO;
 import com.media.intelligence.user.dto.UserResponseDTO;

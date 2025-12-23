@@ -1,6 +1,6 @@
 package com.media.intelligence.common.exception;
 
-import com.media.intelligence.common.dto.ErrorResponse;
+import com.media.intelligence.common.dto.error_response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

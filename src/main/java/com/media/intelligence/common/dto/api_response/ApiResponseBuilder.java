@@ -1,4 +1,4 @@
-package com.media.intelligence.common.dto;
+package com.media.intelligence.common.dto.api_response;
 
 import java.time.LocalDateTime;
 

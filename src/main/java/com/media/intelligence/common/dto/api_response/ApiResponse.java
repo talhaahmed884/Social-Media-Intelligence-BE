@@ -1,6 +1,7 @@
-package com.media.intelligence.common.dto;
+package com.media.intelligence.common.dto.api_response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.media.intelligence.common.dto.error_response.ErrorResponse;
 import lombok.Getter;
 
 import java.time.LocalDateTime;

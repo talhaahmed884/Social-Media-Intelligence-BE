@@ -1,4 +1,4 @@
-package com.media.intelligence.common.dto;
+package com.media.intelligence.common.dto.error_response;
 
 import java.time.LocalDateTime;
 import java.util.List;
