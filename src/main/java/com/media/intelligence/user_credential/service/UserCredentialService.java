@@ -1,0 +1,226 @@
+package com.media.intelligence.user_credential.service;
+
+import com.media.intelligence.user_credential.entity.UserCredential;
+import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
+import com.media.intelligence.user_credential.exception.UserCredentialException;
+import com.media.intelligence.user_credential.repository.UserCredentialRepository;
+import com.media.intelligence.user_credential.strategy.PasswordHashingStrategy;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+/**
+ * Service for managing user credentials (password hashing and verification).
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserCredentialService {
+
+    private final UserCredentialRepository credentialRepository;
+    private final PasswordHashingStrategy hashingStrategy;
+
+    /**
+     * Create credentials for a new user.
+     *
+     * @param userId   the user ID
+     * @param password the plaintext password
+     * @return the created credential
+     * @throws UserCredentialException if creation fails, userId is null, or password is invalid
+     */
+    @Transactional
+    public UserCredential createCredential(UUID userId, String password) {
+        // Validate userId is not null
+        if (userId == null) {
+            log.error("Credential creation failed: userId is null");
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
+        }
+
+        // Validate password is not null or empty
+        if (password == null || password.trim().isEmpty()) {
+            log.error("Credential creation failed: password is null or empty");
+            throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_REQUIRED);
+        }
+
+        log.debug("Creating credentials for user: {}", userId);
+
+        try {
+            // Check if credentials already exist
+            if (credentialRepository.existsByUserId(userId)) {
+                log.warn("Credential creation failed: credentials already exist for user: {}", userId);
+                throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
+            }
+
+            // Hash the password
+            String passwordHash;
+            try {
+                passwordHash = hashingStrategy.hash(password);
+            } catch (Exception e) {
+                log.error("Failed to hash password for user {}: {}", userId, e.getMessage(), e);
+                throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_HASH_FAILED);
+            }
+
+            // Build credential entity
+            UserCredential credential = UserCredential.builder()
+                    .userId(userId)
+                    .passwordHash(passwordHash)
+                    .build();
+
+            // Save to database
+            UserCredential saved;
+            try {
+                saved = credentialRepository.save(credential);
+                log.info("Credentials created successfully for user: {}", userId);
+            } catch (Exception e) {
+                log.error("Failed to save credentials to database for user {}: {}", userId, e.getMessage(), e);
+                throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
+            }
+
+            return saved;
+
+        } catch (UserCredentialException e) {
+            // Re-throw UserCredentialException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected exceptions
+            log.error("Unexpected error during credential creation for user {}: {}", userId, e.getMessage(), e);
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
+        }
+    }
+
+    /**
+     * Verify password for a user.
+     *
+     * @param userId   the user ID
+     * @param password the plaintext password
+     * @return true if password is correct
+     * @throws UserCredentialException if credentials not found, userId is null, or password is invalid
+     */
+    public boolean verifyPassword(UUID userId, String password) {
+        // Validate userId is not null
+        if (userId == null) {
+            log.error("Password verification failed: userId is null");
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);
+        }
+
+        // Validate password is not null or empty
+        if (password == null || password.trim().isEmpty()) {
+            log.error("Password verification failed: password is null or empty");
+            throw new UserCredentialException(UserCredentialErrorCode.INVALID_PASSWORD);
+        }
+
+        try {
+            // Get credential from database
+            UserCredential credential = getCredentialByUserId(userId);
+
+            // Verify password
+            boolean isValid;
+            try {
+                isValid = hashingStrategy.verify(password, credential.getPasswordHash());
+                log.debug("Password verification for user {}: {}", userId, isValid ? "success" : "failed");
+            } catch (Exception e) {
+                log.error("Failed to verify password for user {}: {}", userId, e.getMessage(), e);
+                throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_VERIFICATION_FAILED);
+            }
+
+            return isValid;
+
+        } catch (UserCredentialException e) {
+            // Re-throw UserCredentialException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected exceptions
+            log.error("Unexpected error during password verification for user {}: {}", userId, e.getMessage(), e);
+            throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_VERIFICATION_FAILED);
+        }
+    }
+
+    /**
+     * Update password for a user.
+     *
+     * @param userId      the user ID
+     * @param newPassword the new plaintext password
+     * @throws UserCredentialException if update fails, userId is null, or password is invalid
+     */
+    @Transactional
+    public void updatePassword(UUID userId, String newPassword) {
+        // Validate userId is not null
+        if (userId == null) {
+            log.error("Password update failed: userId is null");
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
+        }
+
+        // Validate newPassword is not null or empty
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            log.error("Password update failed: newPassword is null or empty");
+            throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_REQUIRED);
+        }
+
+        log.debug("Updating password for user: {}", userId);
+
+        try {
+            // Get existing credential
+            UserCredential credential = getCredentialByUserId(userId);
+
+            // Hash the new password
+            String newPasswordHash;
+            try {
+                newPasswordHash = hashingStrategy.hash(newPassword);
+            } catch (Exception e) {
+                log.error("Failed to hash new password for user {}: {}", userId, e.getMessage(), e);
+                throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_HASH_FAILED);
+            }
+
+            // Update and save
+            credential.setPasswordHash(newPasswordHash);
+            try {
+                credentialRepository.save(credential);
+                log.info("Password updated successfully for user: {}", userId);
+            } catch (Exception e) {
+                log.error("Failed to save updated credentials for user {}: {}", userId, e.getMessage(), e);
+                throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
+            }
+
+        } catch (UserCredentialException e) {
+            // Re-throw UserCredentialException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected exceptions
+            log.error("Unexpected error during password update for user {}: {}", userId, e.getMessage(), e);
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
+        }
+    }
+
+    /**
+     * Get credential by user ID.
+     *
+     * @param userId the user ID
+     * @return the credential
+     * @throws UserCredentialException if not found or userId is null
+     */
+    public UserCredential getCredentialByUserId(UUID userId) {
+        // Validate userId is not null
+        if (userId == null) {
+            log.error("Get credential failed: userId is null");
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);
+        }
+
+        try {
+            return credentialRepository.findByUserId(userId)
+                    .orElseThrow(() -> {
+                        log.warn("Credential not found for userId: {}", userId);
+                        return new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);
+                    });
+        } catch (UserCredentialException e) {
+            // Re-throw UserCredentialException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected database errors
+            log.error("Unexpected error while getting credential for user {}: {}", userId, e.getMessage(), e);
+            throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);
+        }
+    }
+}

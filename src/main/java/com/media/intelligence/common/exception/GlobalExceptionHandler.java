@@ -1,6 +1,6 @@
 package com.media.intelligence.common.exception;
 
-import com.media.intelligence.common.dto.ApiResponse;
+import com.media.intelligence.common.dto.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Global exception handler that catches all exceptions and returns standardized ApiResponse.
+ * Global exception handler that catches all exceptions and returns standardized ErrorResponse.
  * Uses @RestControllerAdvice to handle exceptions across all controllers.
  * <p>
  * The handler dynamically extracts ErrorCode from BaseException without knowing
@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
      * without modifying this handler.
      */
     @ExceptionHandler(BaseException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBaseException(
+    public ResponseEntity<ErrorResponse> handleBaseException(
             BaseException ex,
             WebRequest request) {
 
@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
 
         log.warn("Business exception: {} - {}", errorCode.getCode(), errorCode.getMessage(), ex);
 
-        ApiResponse<Void> response = ApiResponse.error(
+        ErrorResponse response = ErrorResponse.error(
                 errorCode.getCode(),
                 errorCode.getMessage()
         );
@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
      * Note: This will be deprecated once migration to custom framework is complete.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(
+    public ResponseEntity<ErrorResponse> handleValidationException(
             MethodArgumentNotValidException ex,
             WebRequest request) {
 
@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation failed: {}", errors);
 
-        ApiResponse<Void> response = ApiResponse.error(
+        ErrorResponse response = ErrorResponse.error(
                 CommonErrorCode.VALIDATION_FAILED.getCode(),
                 CommonErrorCode.VALIDATION_FAILED.getMessage(),
                 errors
@@ -82,13 +82,13 @@ public class GlobalExceptionHandler {
      * Maps to CommonErrorCode.INVALID_INPUT.
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
             IllegalArgumentException ex,
             WebRequest request) {
 
         log.warn("Illegal argument: {}", ex.getMessage());
 
-        ApiResponse<Void> response = ApiResponse.error(
+        ErrorResponse response = ErrorResponse.error(
                 CommonErrorCode.INVALID_INPUT.getCode(),
                 ex.getMessage()
         );
@@ -101,13 +101,13 @@ public class GlobalExceptionHandler {
      * Maps to CommonErrorCode.INTERNAL_SERVER_ERROR.
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGlobalException(
+    public ResponseEntity<ErrorResponse> handleGlobalException(
             Exception ex,
             WebRequest request) {
 
         log.error("Unexpected error occurred", ex);
 
-        ApiResponse<Void> response = ApiResponse.error(
+        ErrorResponse response = ErrorResponse.error(
                 CommonErrorCode.INTERNAL_SERVER_ERROR.getCode(),
                 CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()
         );
@@ -119,13 +119,13 @@ public class GlobalExceptionHandler {
      * Handle malformed JSON in request body
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex,
             WebRequest request) {
 
         log.error("Malformed JSON request", ex);
 
-        ApiResponse<Void> errorResponse = ApiResponse.error(
+        ErrorResponse errorResponse = ErrorResponse.error(
                 CommonErrorCode.MALFORMED_JSON.getCode(),
                 CommonErrorCode.MALFORMED_JSON.getMessage()
         );
@@ -137,13 +137,13 @@ public class GlobalExceptionHandler {
      * Handle wrong HTTP method (e.g., GET instead of POST)
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
             HttpRequestMethodNotSupportedException ex,
             WebRequest request) {
 
         log.error("HTTP method not supported", ex);
 
-        ApiResponse<Void> errorResponse = ApiResponse.error(
+        ErrorResponse errorResponse = ErrorResponse.error(
                 CommonErrorCode.METHOD_NOT_ALLOWED.getCode(),
                 CommonErrorCode.METHOD_NOT_ALLOWED.getMessage()
         );
@@ -155,13 +155,13 @@ public class GlobalExceptionHandler {
      * Handle missing request parameters
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingParams(
+    public ResponseEntity<ErrorResponse> handleMissingParams(
             MissingServletRequestParameterException ex,
             WebRequest request) {
 
         log.error("Missing request parameter", ex);
 
-        ApiResponse<Void> errorResponse = ApiResponse.error(
+        ErrorResponse errorResponse = ErrorResponse.error(
                 CommonErrorCode.MISSING_PARAMETER.getCode(),
                 CommonErrorCode.MISSING_PARAMETER.getMessage()
         );

@@ -11,12 +11,12 @@ import com.media.intelligence.user.sanitization.FindUserByEmailDTOSanitizer;
 import com.media.intelligence.user.sanitization.RegisterUserDTOSanitizer;
 import com.media.intelligence.user.validation.FindUserByEmailDTOValidator;
 import com.media.intelligence.user.validation.RegisterUserDTOValidator;
+import com.media.intelligence.user_credential.service.UserCredentialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Base64;
 import java.util.UUID;
 
 /**
@@ -34,6 +34,7 @@ import java.util.UUID;
 public class UserRegistrationService {
 
     private final UserRepository userRepository;
+    private final UserCredentialService credentialService;
     private final RegisterUserDTOValidator registerUserValidator;
     private final RegisterUserDTOSanitizer registerUserSanitizer;
     private final FindUserByEmailDTOValidator findUserByEmailValidator;
@@ -50,43 +51,67 @@ public class UserRegistrationService {
      */
     @Transactional
     public User registerUser(RegisterUserDTO dto) {
-        log.info("Attempting to register user with email: {}", dto.getEmail());
-
-        // Step 1: Sanitize the DTO (modifies in place)
-        registerUserSanitizer.sanitize(dto);
-        log.debug("DTO sanitized: email={}, fullName={}", dto.getEmail(), dto.getFullName());
-
-        // Step 2: Validate the sanitized DTO
-        ValidationResult validationResult = registerUserValidator.validate(dto);
-        if (validationResult.hasErrors()) {
-            log.warn("Registration validation failed: {}", validationResult.getDetailedErrorMessage());
+        // Validate DTO is not null
+        if (dto == null) {
+            log.error("Registration failed: DTO is null");
             throw new UserException(UserErrorCode.INVALID_INPUT);
         }
 
-        // Business Rule: Email must be unique
-        if (userRepository.existsByEmail(dto.getEmail())) {
-            log.warn("Registration failed: Email already exists: {}", dto.getEmail());
-            throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+        log.info("Attempting to register user with email: {}", dto.getEmail());
+
+        try {
+            // Step 1: Sanitize the DTO (modifies in place)
+            registerUserSanitizer.sanitize(dto);
+            log.debug("DTO sanitized: email={}, fullName={}", dto.getEmail(), dto.getFullName());
+
+            // Step 2: Validate the sanitized DTO
+            ValidationResult validationResult = registerUserValidator.validate(dto);
+            if (validationResult.hasErrors()) {
+                log.warn("Registration validation failed: {}", validationResult.getDetailedErrorMessage());
+                throw new UserException(UserErrorCode.INVALID_INPUT);
+            }
+
+            // Business Rule: Email must be unique
+            if (userRepository.existsByEmail(dto.getEmail())) {
+                log.warn("Registration failed: Email already exists: {}", dto.getEmail());
+                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+
+            // Create user entity (without password)
+            User user = User.builder()
+                    .email(dto.getEmail())           // Already sanitized and normalized
+                    .fullName(dto.getFullName())     // Already sanitized
+                    .build();
+
+            // Persist user
+            User savedUser;
+            try {
+                savedUser = userRepository.save(user);
+                log.info("User registered successfully with ID: {}", savedUser.getId());
+            } catch (Exception e) {
+                log.error("Failed to save user to database: {}", e.getMessage(), e);
+                throw new UserException(UserErrorCode.REGISTRATION_FAILED);
+            }
+
+            // Create credentials in separate table
+            try {
+                credentialService.createCredential(savedUser.getId(), dto.getPassword());
+                log.debug("Credentials created for user: {}", savedUser.getId());
+            } catch (Exception e) {
+                log.error("Failed to create credentials for user {}: {}", savedUser.getId(), e.getMessage(), e);
+                throw new UserException(UserErrorCode.REGISTRATION_FAILED);
+            }
+
+            return savedUser;
+
+        } catch (UserException e) {
+            // Re-throw UserException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected exceptions
+            log.error("Unexpected error during user registration: {}", e.getMessage(), e);
+            throw new UserException(UserErrorCode.REGISTRATION_FAILED);
         }
-
-        // Hash password (TODO: Replace with BCrypt in production)
-        String passwordHash = hashPassword(dto.getPassword());
-
-        // Create user entity
-        User user = User.builder()
-                .email(dto.getEmail())           // Already sanitized and normalized
-                .passwordHash(passwordHash)
-                .fullName(dto.getFullName())     // Already sanitized
-                .isActive(true)
-                .isLocked(false)
-                .failedLoginAttempts(0)
-                .build();
-
-        // Persist user
-        User savedUser = userRepository.save(user);
-        log.info("User registered successfully with ID: {}", savedUser.getId());
-
-        return savedUser;
     }
 
     /**
@@ -94,11 +119,29 @@ public class UserRegistrationService {
      *
      * @param userId the user ID
      * @return the user
-     * @throws UserException if user not found
+     * @throws UserException if user not found or userId is null
      */
     public User findUserById(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+        // Validate userId is not null
+        if (userId == null) {
+            log.error("Find user failed: userId is null");
+            throw new UserException(UserErrorCode.USER_ID_INVALID);
+        }
+
+        try {
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> {
+                        log.warn("User not found for userId: {}", userId);
+                        return new UserException(UserErrorCode.USER_NOT_FOUND);
+                    });
+        } catch (UserException e) {
+            // Re-throw UserException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected database errors
+            log.error("Unexpected error while finding user by ID {}: {}", userId, e.getMessage(), e);
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
     }
 
     /**
@@ -111,37 +154,40 @@ public class UserRegistrationService {
      * @throws UserException if validation fails or user not found
      */
     public User findUserByEmail(FindUserByEmailDTO dto) {
-        log.debug("Finding user by email: {}", dto.getEmail());
-
-        // Step 1: Sanitize the DTO (modifies in place)
-        findUserByEmailSanitizer.sanitize(dto);
-        log.debug("DTO sanitized: email={}", dto.getEmail());
-
-        // Step 2: Validate the sanitized DTO
-        ValidationResult validationResult = findUserByEmailValidator.validate(dto);
-        if (validationResult.hasErrors()) {
-            log.warn("Find user by email validation failed: {}", validationResult.getDetailedErrorMessage());
-            throw new UserException(UserErrorCode.INVALID_EMAIL_FORMAT);
+        // Validate DTO is not null
+        if (dto == null) {
+            log.error("Find user by email failed: DTO is null");
+            throw new UserException(UserErrorCode.INVALID_INPUT);
         }
 
-        // Step 3: Find user
-        return userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> {
-                    log.warn("User not found for email: {}", dto.getEmail());
-                    return new UserException(UserErrorCode.USER_NOT_FOUND);
-                });
-    }
+        log.debug("Finding user by email: {}", dto.getEmail());
 
-    /**
-     * Hash password using Base64 encoding.
-     * TODO: Replace with BCrypt/Argon2 in production for proper security.
-     *
-     * @param plainPassword the plain text password
-     * @return the hashed password
-     */
-    private String hashPassword(String plainPassword) {
-        // TEMPORARY: For MVP/testing purposes only
-        // PRODUCTION: Use BCryptPasswordEncoder or Argon2
-        return Base64.getEncoder().encodeToString(plainPassword.getBytes());
+        try {
+            // Step 1: Sanitize the DTO (modifies in place)
+            findUserByEmailSanitizer.sanitize(dto);
+            log.debug("DTO sanitized: email={}", dto.getEmail());
+
+            // Step 2: Validate the sanitized DTO
+            ValidationResult validationResult = findUserByEmailValidator.validate(dto);
+            if (validationResult.hasErrors()) {
+                log.warn("Find user by email validation failed: {}", validationResult.getDetailedErrorMessage());
+                throw new UserException(UserErrorCode.INVALID_EMAIL_FORMAT);
+            }
+
+            // Step 3: Find user
+            return userRepository.findByEmail(dto.getEmail())
+                    .orElseThrow(() -> {
+                        log.warn("User not found for email: {}", dto.getEmail());
+                        return new UserException(UserErrorCode.USER_NOT_FOUND);
+                    });
+
+        } catch (UserException e) {
+            // Re-throw UserException as-is
+            throw e;
+        } catch (Exception e) {
+            // Catch any unexpected database errors
+            log.error("Unexpected error while finding user by email: {}", e.getMessage(), e);
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
     }
 }
