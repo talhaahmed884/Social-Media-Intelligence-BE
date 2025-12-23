@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class FindUserByEmailDTOSanitizer {
-
     private final Sanitizer<FindUserByEmailDTO> sanitizer;
 
     public FindUserByEmailDTOSanitizer() {

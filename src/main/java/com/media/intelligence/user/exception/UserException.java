@@ -16,7 +16,6 @@ import com.media.intelligence.common.exception.BaseException;
  * </pre>
  */
 public class UserException extends BaseException {
-
     /**
      * Create a UserException with a specific error code.
      * HTTP status is automatically derived from the error code.

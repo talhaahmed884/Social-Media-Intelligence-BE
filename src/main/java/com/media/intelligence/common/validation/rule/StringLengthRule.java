@@ -4,7 +4,6 @@ package com.media.intelligence.common.validation.rule;
  * Validates string length (min and max).
  */
 public class StringLengthRule extends ValidationRule<String> {
-
     private final int min;
     private final int max;
 

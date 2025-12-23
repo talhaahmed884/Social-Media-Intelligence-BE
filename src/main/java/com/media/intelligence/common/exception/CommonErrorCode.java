@@ -17,7 +17,6 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum CommonErrorCode implements ErrorCode {
-
     // Validation Errors (400 BAD_REQUEST)
     VALIDATION_FAILED("VALIDATION_FAILED", "Input validation failed", HttpStatus.BAD_REQUEST),
     INVALID_INPUT("INVALID_INPUT", "The provided input is invalid", HttpStatus.BAD_REQUEST),

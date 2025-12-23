@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
     /**
      * Handle all BaseException subclasses.
      * Dynamically extracts ErrorCode regardless of the specific exception type.

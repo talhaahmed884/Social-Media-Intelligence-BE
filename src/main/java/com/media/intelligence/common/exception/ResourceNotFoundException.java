@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
  * domain-specific exceptions with domain-specific error codes.
  */
 public class ResourceNotFoundException extends BaseException {
-
     public ResourceNotFoundException() {
         super(CommonErrorCode.RESOURCE_NOT_FOUND);
     }

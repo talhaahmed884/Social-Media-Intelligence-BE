@@ -15,14 +15,13 @@ import java.util.List;
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponse {
-
     private final boolean success;
     private final String errorCode;
     private final String message;
     private final List<String> errors;
     private final LocalDateTime timestamp;
 
-    private ErrorResponse(Builder builder) {
+    protected ErrorResponse(ErrorResponseBuilder builder) {
         this.success = false; // Always false for error responses
         this.errorCode = builder.errorCode;
         this.message = builder.message;
@@ -30,8 +29,8 @@ public class ErrorResponse {
         this.timestamp = builder.timestamp;
     }
 
-    public static Builder builder() {
-        return new Builder();
+    public static ErrorResponseBuilder builder() {
+        return new ErrorResponseBuilder();
     }
 
     /**
@@ -72,40 +71,5 @@ public class ErrorResponse {
                 .message(message)
                 .errors(errors)
                 .build();
-    }
-
-    public static class Builder {
-        private String errorCode;
-        private String message;
-        private List<String> errors;
-        private LocalDateTime timestamp;
-
-        private Builder() {
-            this.timestamp = LocalDateTime.now();
-        }
-
-        public Builder errorCode(String errorCode) {
-            this.errorCode = errorCode;
-            return this;
-        }
-
-        public Builder message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public Builder errors(List<String> errors) {
-            this.errors = errors;
-            return this;
-        }
-
-        public Builder timestamp(LocalDateTime timestamp) {
-            this.timestamp = timestamp;
-            return this;
-        }
-
-        public ErrorResponse build() {
-            return new ErrorResponse(this);
-        }
     }
 }

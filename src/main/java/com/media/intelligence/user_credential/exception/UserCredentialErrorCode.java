@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum UserCredentialErrorCode implements ErrorCode {
-
     CREDENTIAL_NOT_FOUND("CRED_001", "Credentials not found for user", HttpStatus.NOT_FOUND),
     INVALID_PASSWORD("CRED_002", "Invalid password provided", HttpStatus.BAD_REQUEST),
     PASSWORD_HASH_FAILED("CRED_003", "Failed to hash password", HttpStatus.INTERNAL_SERVER_ERROR),

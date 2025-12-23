@@ -17,7 +17,6 @@ import java.util.*;
  * </pre>
  */
 public class Sanitizer<T> {
-
     private final Map<String, List<SanitizationRule<?>>> fieldRules;
 
     public Sanitizer() {

@@ -12,7 +12,6 @@ import java.util.UUID;
  */
 @Repository
 public interface UserCredentialRepository extends JpaRepository<UserCredential, UUID> {
-
     /**
      * Find user credentials by user ID.
      *

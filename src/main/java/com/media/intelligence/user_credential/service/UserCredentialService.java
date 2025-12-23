@@ -19,7 +19,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UserCredentialService {
-
     private final UserCredentialRepository credentialRepository;
     private final PasswordHashingStrategy hashingStrategy;
 

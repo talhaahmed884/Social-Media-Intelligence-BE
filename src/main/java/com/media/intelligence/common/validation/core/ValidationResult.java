@@ -14,7 +14,6 @@ import java.util.List;
 @Getter
 @Builder
 public class ValidationResult {
-
     private final boolean valid;
     private final List<ValidationError> errors;
     private final Object sanitizedTarget; // The sanitized DTO

@@ -28,7 +28,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class User {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", updatable = false, nullable = false)

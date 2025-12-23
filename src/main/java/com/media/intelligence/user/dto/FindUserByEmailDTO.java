@@ -21,6 +21,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class FindUserByEmailDTO {
-
     private String email;
 }

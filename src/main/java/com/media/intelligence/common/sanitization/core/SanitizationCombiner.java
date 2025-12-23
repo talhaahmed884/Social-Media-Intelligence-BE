@@ -19,7 +19,6 @@ import java.util.List;
  * </pre>
  */
 public class SanitizationCombiner<T> {
-
     private final List<SanitizationRule<T>> rules;
 
     /**

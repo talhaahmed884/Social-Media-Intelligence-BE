@@ -6,7 +6,6 @@ import com.media.intelligence.common.sanitization.core.SanitizationRule;
  * Normalizes email addresses (lowercase, remove Gmail dots).
  */
 public class EmailNormalizationRule extends SanitizationRule<String> {
-
     public EmailNormalizationRule() {
         super("EMAIL_NORMALIZATION");
     }

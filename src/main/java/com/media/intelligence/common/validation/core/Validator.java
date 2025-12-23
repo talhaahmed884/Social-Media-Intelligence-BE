@@ -19,7 +19,6 @@ import java.util.*;
  * </pre>
  */
 public class Validator<T> {
-
     private final Map<String, List<ValidationRule<?>>> fieldRules;
 
     public Validator() {

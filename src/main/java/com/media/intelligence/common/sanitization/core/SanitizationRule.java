@@ -14,7 +14,6 @@ import lombok.Getter;
  */
 @Getter
 public abstract class SanitizationRule<T> {
-
     private final String ruleName;
 
     protected SanitizationRule(String ruleName) {
@@ -41,5 +40,4 @@ public abstract class SanitizationRule<T> {
      * @return sanitized value
      */
     protected abstract T sanitizeValue(T value);
-
 }

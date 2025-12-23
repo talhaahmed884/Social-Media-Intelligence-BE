@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
  */
 @Getter
 public abstract class BaseException extends RuntimeException {
-
     private final ErrorCode errorCode;
     private final HttpStatus httpStatus;
 

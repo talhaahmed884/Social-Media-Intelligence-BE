@@ -45,7 +45,6 @@ import java.util.List;
  * </pre>
  */
 public class RuleCombiner<T> {
-
     private final List<ValidationRule<T>> validationRules;
     private final List<SanitizationRule<T>> sanitizationRules;
 
@@ -63,7 +62,7 @@ public class RuleCombiner<T> {
     /**
      * Private constructor for builder.
      */
-    private RuleCombiner(List<ValidationRule<T>> validationRules, List<SanitizationRule<T>> sanitizationRules) {
+    protected RuleCombiner(List<ValidationRule<T>> validationRules, List<SanitizationRule<T>> sanitizationRules) {
         this.validationRules = validationRules;
         this.sanitizationRules = sanitizationRules;
     }
@@ -74,8 +73,8 @@ public class RuleCombiner<T> {
      * @param <T> the type to validate/sanitize
      * @return a new builder instance
      */
-    public static <T> Builder<T> builder() {
-        return new Builder<>();
+    public static <T> RuleCombinerBuilder<T> builder() {
+        return new RuleCombinerBuilder<>();
     }
 
     /**
@@ -145,48 +144,5 @@ public class RuleCombiner<T> {
      */
     public boolean isValid(T value, String fieldName) {
         return !validate(value, fieldName).hasErrors();
-    }
-
-    /**
-     * Builder for RuleCombiner with both sanitization and validation rules.
-     *
-     * @param <T> the type to validate/sanitize
-     */
-    public static class Builder<T> {
-        private List<SanitizationRule<T>> sanitizationRules = Collections.emptyList();
-        private List<ValidationRule<T>> validationRules = Collections.emptyList();
-
-        /**
-         * Set the sanitization rules.
-         *
-         * @param rules the sanitization rules
-         * @return this builder
-         */
-        @SafeVarargs
-        public final Builder<T> sanitizationRules(SanitizationRule<T>... rules) {
-            this.sanitizationRules = Arrays.asList(rules);
-            return this;
-        }
-
-        /**
-         * Set the validation rules.
-         *
-         * @param rules the validation rules
-         * @return this builder
-         */
-        @SafeVarargs
-        public final Builder<T> validationRules(ValidationRule<T>... rules) {
-            this.validationRules = Arrays.asList(rules);
-            return this;
-        }
-
-        /**
-         * Build the RuleCombiner.
-         *
-         * @return a new RuleCombiner instance
-         */
-        public RuleCombiner<T> build() {
-            return new RuleCombiner<>(validationRules, sanitizationRules);
-        }
     }
 }

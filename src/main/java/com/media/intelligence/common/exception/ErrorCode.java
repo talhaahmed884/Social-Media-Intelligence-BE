@@ -19,7 +19,6 @@ import org.springframework.http.HttpStatus;
  * - ConnectorErrorCode (social media integration errors)
  */
 public interface ErrorCode {
-
     /**
      * Get the unique error code identifier.
      * Should follow a consistent format: DOMAIN_ERROR_TYPE

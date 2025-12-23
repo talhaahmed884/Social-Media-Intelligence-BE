@@ -19,7 +19,6 @@ import java.util.Base64;
 @Slf4j
 @Component
 public class SHA512HashingStrategy implements PasswordHashingStrategy {
-
     private static final String ALGORITHM = "SHA-512";
     private static final int SALT_LENGTH = 16;
 

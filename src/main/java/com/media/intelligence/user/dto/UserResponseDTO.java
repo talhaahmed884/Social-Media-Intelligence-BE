@@ -18,15 +18,11 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class UserResponseDTO {
-
     private UUID id;
     private String email;
     private String fullName;
-    private Boolean isActive;
-    private Boolean isLocked;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private LocalDateTime lastLoginAt;
 
     /**
      * Create UserResponseDTO from User entity.
@@ -36,11 +32,8 @@ public class UserResponseDTO {
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
-                .isActive(user.getIsActive())
-                .isLocked(user.getIsLocked())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
-                .lastLoginAt(user.getLastLoginAt())
                 .build();
     }
 }

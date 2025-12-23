@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class FindUserByEmailDTOValidator {
-
     private final Validator<FindUserByEmailDTO> validator;
 
     public FindUserByEmailDTOValidator() {

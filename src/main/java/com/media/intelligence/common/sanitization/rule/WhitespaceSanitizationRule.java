@@ -6,7 +6,6 @@ import com.media.intelligence.common.sanitization.core.SanitizationRule;
  * Trims whitespace from start and end.
  */
 public class WhitespaceSanitizationRule extends SanitizationRule<String> {
-
     public WhitespaceSanitizationRule() {
         super("WHITESPACE_SANITIZATION");
     }

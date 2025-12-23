@@ -25,7 +25,6 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
-
     private final UserRegistrationService userRegistrationService;
 
     /**

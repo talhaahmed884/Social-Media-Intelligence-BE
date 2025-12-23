@@ -8,7 +8,6 @@ import org.jsoup.safety.Safelist;
  * Removes XSS threats by stripping HTML/JavaScript.
  */
 public class XssSanitizationRule extends SanitizationRule<String> {
-
     public XssSanitizationRule() {
         super("XSS_SANITIZATION");
     }

@@ -6,7 +6,6 @@ import com.media.intelligence.common.exception.BaseException;
  * Exception for user credential-related errors.
  */
 public class UserCredentialException extends BaseException {
-
     public UserCredentialException(UserCredentialErrorCode errorCode) {
         super(errorCode);
     }

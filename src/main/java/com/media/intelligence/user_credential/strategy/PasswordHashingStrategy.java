@@ -5,7 +5,6 @@ package com.media.intelligence.user_credential.strategy;
  * Allows different hashing strategies (SHA-512, BCrypt, Argon2, etc.) to be used interchangeably.
  */
 public interface PasswordHashingStrategy {
-
     /**
      * Hash a plaintext password.
      *

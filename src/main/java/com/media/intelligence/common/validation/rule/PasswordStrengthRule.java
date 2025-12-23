@@ -4,7 +4,6 @@ package com.media.intelligence.common.validation.rule;
  * Validates password strength with configurable requirements.
  */
 public class PasswordStrengthRule extends ValidationRule<String> {
-
     private final int minLength;
     private final boolean requireUppercase;
     private final boolean requireLowercase;

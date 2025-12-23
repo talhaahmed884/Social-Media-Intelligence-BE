@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
-
     // User Not Found Errors
     USER_NOT_FOUND("USR_001", "User not found", HttpStatus.NOT_FOUND),
     USER_ID_INVALID("USR_002", "Invalid user ID format", HttpStatus.BAD_REQUEST),

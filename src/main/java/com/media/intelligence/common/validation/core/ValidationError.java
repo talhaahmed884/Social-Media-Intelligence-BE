@@ -12,7 +12,6 @@ import lombok.Getter;
 @Builder
 @AllArgsConstructor
 public class ValidationError {
-
     private final String field;           // "email", "password", etc.
     private final String rejectedValue;   // The value that failed
     private final String message;         // "Email is required"

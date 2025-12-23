@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RegisterUserDTOValidator {
-
     private final Validator<RegisterUserDTO> validator;
 
     public RegisterUserDTOValidator() {

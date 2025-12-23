@@ -32,7 +32,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UserRegistrationService {
-
     private final UserRepository userRepository;
     private final UserCredentialService credentialService;
     private final RegisterUserDTOValidator registerUserValidator;

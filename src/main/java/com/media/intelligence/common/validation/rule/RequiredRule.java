@@ -7,7 +7,6 @@ package com.media.intelligence.common.validation.rule;
  * @param <T> the type being validated
  */
 public class RequiredRule<T> extends ValidationRule<T> {
-
     public RequiredRule() {
         super("REQUIRED", "This field is required");
     }

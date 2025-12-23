@@ -16,21 +16,20 @@ import java.time.LocalDateTime;
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
-
     private final boolean success;
     private final String message;
     private final T data;
     private final LocalDateTime timestamp;
 
-    private ApiResponse(Builder<T> builder) {
+    protected ApiResponse(ApiResponseBuilder<T> builder) {
         this.success = true; // Always true for success responses
         this.message = builder.message;
         this.data = builder.data;
         this.timestamp = builder.timestamp;
     }
 
-    public static <T> Builder<T> builder() {
-        return new Builder<>();
+    public static <T> ApiResponseBuilder<T> builder() {
+        return new ApiResponseBuilder<>();
     }
 
     /**
@@ -51,34 +50,5 @@ public class ApiResponse<T> {
                 .message(message)
                 .data(data)
                 .build();
-    }
-
-    public static class Builder<T> {
-        private String message;
-        private T data;
-        private LocalDateTime timestamp;
-
-        private Builder() {
-            this.timestamp = LocalDateTime.now();
-        }
-
-        public Builder<T> message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public Builder<T> data(T data) {
-            this.data = data;
-            return this;
-        }
-
-        public Builder<T> timestamp(LocalDateTime timestamp) {
-            this.timestamp = timestamp;
-            return this;
-        }
-
-        public ApiResponse<T> build() {
-            return new ApiResponse<>(this);
-        }
     }
 }

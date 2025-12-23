@@ -15,7 +15,6 @@ import lombok.Getter;
  */
 @Getter
 public abstract class ValidationRule<T> {
-
     private final String errorCode;
     private final String errorMessage;
 
@@ -53,5 +52,4 @@ public abstract class ValidationRule<T> {
      * @return true if valid, false otherwise
      */
     protected abstract boolean isValid(T value);
-
 }

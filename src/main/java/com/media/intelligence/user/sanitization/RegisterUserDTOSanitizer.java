@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RegisterUserDTOSanitizer {
-
     private final Sanitizer<RegisterUserDTO> sanitizer;
 
     public RegisterUserDTOSanitizer() {

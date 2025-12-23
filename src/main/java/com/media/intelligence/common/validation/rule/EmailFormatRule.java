@@ -6,7 +6,6 @@ import java.util.regex.Pattern;
  * Validates email format (RFC 5322 compliant).
  */
 public class EmailFormatRule extends ValidationRule<String> {
-
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@" +
                     "(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}$"
