@@ -134,11 +134,8 @@ public class XssSanitizationRuleTest {
     @Test
     @DisplayName("Should handle null input")
     void shouldHandleNullInput() {
-        // Arrange
-        String input = null;
-
         // Act
-        String result = rule.sanitize(input);
+        String result = rule.sanitize(null);
 
         // Assert
         assertNull(result, "Should return null for null input");

@@ -34,27 +34,27 @@ import org.junit.platform.suite.api.SuiteDisplayName;
 @SuiteDisplayName("Validation and Sanitization Test Suite")
 @SelectClasses({
         // Validation Rules
-        RequiredRuleTest.class,
         EmailFormatRuleTest.class,
-        StringLengthRuleTest.class,
         PasswordStrengthRuleTest.class,
+        RequiredRuleTest.class,
+        StringLengthRuleTest.class,
 
         // Sanitization Rules
         WhitespaceSanitizationRuleTest.class,
-        XssSanitizationRuleTest.class,
         EmailNormalizationRuleTest.class,
+        XssSanitizationRuleTest.class,
 
         // DTO Validators
-        RegisterUserDTOValidatorTest.class,
-        UpdateUserProfileDTOValidatorTest.class,
         ChangePasswordDTOValidatorTest.class,
         FindUserByEmailDTOValidatorTest.class,
+        RegisterUserDTOValidatorTest.class,
+        UpdateUserProfileDTOValidatorTest.class,
 
         // DTO Sanitizers
+        ChangePasswordDTOSanitizerTest.class,
+        FindUserByEmailDTOSanitizerTest.class,
         RegisterUserDTOSanitizerTest.class,
         UpdateUserProfileDTOSanitizerTest.class,
-        ChangePasswordDTOSanitizerTest.class,
-        FindUserByEmailDTOSanitizerTest.class
 })
 public class ValidationSanitizationTestSuite {
     // Test suite runner - no additional code needed

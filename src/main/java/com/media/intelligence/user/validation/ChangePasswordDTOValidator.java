@@ -21,7 +21,8 @@ public class ChangePasswordDTOValidator {
     public ChangePasswordDTOValidator() {
         this.validator = new Validator<ChangePasswordDTO>()
                 .field("currentPassword",
-                        new RequiredRule<>())
+                        new RequiredRule<>(),
+                        PasswordStrengthRule.strong())
                 .field("newPassword",
                         new RequiredRule<>(),
                         PasswordStrengthRule.strong());

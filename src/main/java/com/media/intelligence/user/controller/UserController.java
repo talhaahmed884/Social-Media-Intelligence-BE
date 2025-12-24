@@ -3,9 +3,7 @@ package com.media.intelligence.user.controller;
 import com.media.intelligence.common.dto.api_response.ApiResponse;
 import com.media.intelligence.user.dto.*;
 import com.media.intelligence.user.entity.User;
-import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
 import com.media.intelligence.user.service.UserService;
-import com.media.intelligence.user.validation.ChangePasswordDTOValidator;
 import com.media.intelligence.user_credential.service.UserCredentialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +28,6 @@ import java.util.stream.Collectors;
 public class UserController {
     private final UserService userService;
     private final UserCredentialService userCredentialService;
-    private final ChangePasswordDTOValidator changePasswordValidator;
-    private final ChangePasswordDTOSanitizer changePasswordSanitizer;
 
     /**
      * Register a new user.
@@ -155,17 +151,7 @@ public class UserController {
 
         log.info("PUT /api/v1/users/{}/change-password - Changing password", userId);
 
-        // Sanitize and validate in controller for password change
-        changePasswordSanitizer.sanitize(dto);
-        var validationResult = changePasswordValidator.validate(dto);
-
-        if (validationResult.hasErrors()) {
-            log.warn("Password change validation failed: {}", validationResult.getDetailedErrorMessage());
-            throw new com.media.intelligence.user.exception.UserException(
-                    com.media.intelligence.user.exception.UserErrorCode.INVALID_INPUT);
-        }
-
-        userCredentialService.changePassword(userId, dto.getCurrentPassword(), dto.getNewPassword());
+        userCredentialService.changePassword(userId, dto);
 
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }

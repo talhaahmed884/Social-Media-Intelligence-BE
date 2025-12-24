@@ -1,5 +1,10 @@
 package com.media.intelligence.user_credential.service;
 
+import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user.exception.UserErrorCode;
+import com.media.intelligence.user.exception.UserException;
+import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
+import com.media.intelligence.user.validation.ChangePasswordDTOValidator;
 import com.media.intelligence.user_credential.entity.UserCredential;
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
 import com.media.intelligence.user_credential.exception.UserCredentialException;
@@ -21,6 +26,8 @@ import java.util.UUID;
 public class UserCredentialService {
     private final UserCredentialRepository credentialRepository;
     private final PasswordHashingStrategy hashingStrategy;
+    private final ChangePasswordDTOValidator changePasswordValidator;
+    private final ChangePasswordDTOSanitizer changePasswordSanitizer;
 
     /**
      * Create credentials for a new user.
@@ -227,41 +234,39 @@ public class UserCredentialService {
      * Change password for a user.
      * Verifies current password before updating to new password.
      *
-     * @param userId          the user ID
-     * @param currentPassword the current plaintext password
-     * @param newPassword     the new plaintext password
+     * @param userId the user ID
+     * @param dto    the current plaintext password and the new plaintext password
      * @throws UserCredentialException if current password is incorrect or update fails
      */
     @Transactional
-    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+    public void changePassword(UUID userId, ChangePasswordDTO dto) {
+        // Sanitize and validate in controller for password change
+        changePasswordSanitizer.sanitize(dto);
+        var validationResult = changePasswordValidator.validate(dto);
+
+        if (validationResult.hasErrors()) {
+            log.warn("Password change validation failed: {}", validationResult.getDetailedErrorMessage());
+            throw new UserException(UserErrorCode.INVALID_INPUT);
+        }
+
         // Validate inputs
         if (userId == null) {
             log.error("Password change failed: userId is null");
             throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_UPDATE_FAILED);
         }
 
-        if (currentPassword == null || currentPassword.trim().isEmpty()) {
-            log.error("Password change failed: currentPassword is null or empty");
-            throw new UserCredentialException(UserCredentialErrorCode.INVALID_PASSWORD);
-        }
-
-        if (newPassword == null || newPassword.trim().isEmpty()) {
-            log.error("Password change failed: newPassword is null or empty");
-            throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_REQUIRED);
-        }
-
         log.info("Attempting to change password for user: {}", userId);
 
         try {
             // Step 1: Verify current password
-            boolean isCurrentPasswordValid = verifyPassword(userId, currentPassword);
+            boolean isCurrentPasswordValid = verifyPassword(userId, dto.getCurrentPassword());
             if (!isCurrentPasswordValid) {
                 log.warn("Password change failed: current password is incorrect for user: {}", userId);
                 throw new UserCredentialException(UserCredentialErrorCode.CURRENT_PASSWORD_MISMATCH);
             }
 
             // Step 2: Update to new password
-            updatePassword(userId, newPassword);
+            updatePassword(userId, dto.getNewPassword());
             log.info("Password changed successfully for user: {}", userId);
 
         } catch (UserCredentialException e) {

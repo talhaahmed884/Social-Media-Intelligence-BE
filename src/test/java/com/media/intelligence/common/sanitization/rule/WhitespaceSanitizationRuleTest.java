@@ -124,11 +124,8 @@ public class WhitespaceSanitizationRuleTest {
     @Test
     @DisplayName("Should return null when input is null")
     void shouldReturnNullForNullInput() {
-        // Arrange
-        String input = null;
-
         // Act
-        String result = rule.sanitize(input);
+        String result = rule.sanitize(null);
 
         // Assert
         assertNull(result, "Should return null for null input");
