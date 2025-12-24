@@ -55,7 +55,7 @@ public class UserCredentialService {
 
         try {
             // Check if credentials already exist
-            if (credentialRepository.existsByUserId(userId)) {
+            if (credentialRepository.existsByUser_Id(userId)) {
                 log.warn("Credential creation failed: credentials already exist for user: {}", userId);
                 throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
             }
@@ -71,9 +71,9 @@ public class UserCredentialService {
 
             // Build credential entity
             UserCredential credential = UserCredential.builder()
-                    .userId(userId)
                     .passwordHash(passwordHash)
                     .build();
+            credential.setUserId(userId);
 
             // Save to database
             UserCredential saved;
@@ -215,7 +215,7 @@ public class UserCredentialService {
         }
 
         try {
-            return credentialRepository.findByUserId(userId)
+            return credentialRepository.findByUser_Id(userId)
                     .orElseThrow(() -> {
                         log.warn("Credential not found for userId: {}", userId);
                         return new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND);

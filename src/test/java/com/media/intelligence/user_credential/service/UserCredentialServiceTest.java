@@ -60,11 +60,11 @@ public class UserCredentialServiceTest {
 
         testCredential = UserCredential.builder()
                 .id(UUID.randomUUID())
-                .userId(testUserId)
                 .passwordHash(testPasswordHash)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
+        testCredential.setUserId(testUserId);
     }
 
     // ==================== createCredential Tests ====================
@@ -73,7 +73,7 @@ public class UserCredentialServiceTest {
     @DisplayName("createCredential: Should successfully create credentials")
     void createCredential_ShouldSucceed() {
         // Arrange
-        when(credentialRepository.existsByUserId(testUserId)).thenReturn(false);
+        when(credentialRepository.existsByUser_Id(testUserId)).thenReturn(false);
         when(hashingStrategy.hash(testPassword)).thenReturn(testPasswordHash);
         when(credentialRepository.save(any(UserCredential.class))).thenReturn(testCredential);
 
@@ -83,7 +83,7 @@ public class UserCredentialServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(testUserId, result.getUserId());
-        verify(credentialRepository).existsByUserId(testUserId);
+        verify(credentialRepository).existsByUser_Id(testUserId);
         verify(hashingStrategy).hash(testPassword);
         verify(credentialRepository).save(any(UserCredential.class));
     }
@@ -128,7 +128,7 @@ public class UserCredentialServiceTest {
     @DisplayName("createCredential: Should throw exception when credentials already exist")
     void createCredential_ShouldFailWhenCredentialsExist() {
         // Arrange
-        when(credentialRepository.existsByUserId(testUserId)).thenReturn(true);
+        when(credentialRepository.existsByUser_Id(testUserId)).thenReturn(true);
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
@@ -143,7 +143,7 @@ public class UserCredentialServiceTest {
     @DisplayName("createCredential: Should throw exception when hashing fails")
     void createCredential_ShouldFailWhenHashingFails() {
         // Arrange
-        when(credentialRepository.existsByUserId(testUserId)).thenReturn(false);
+        when(credentialRepository.existsByUser_Id(testUserId)).thenReturn(false);
         when(hashingStrategy.hash(testPassword)).thenThrow(new RuntimeException("Hashing error"));
 
         // Act & Assert
@@ -161,7 +161,7 @@ public class UserCredentialServiceTest {
     @DisplayName("verifyPassword: Should return true for correct password")
     void verifyPassword_ShouldReturnTrueForCorrectPassword() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
         when(hashingStrategy.verify(testPassword, testPasswordHash)).thenReturn(true);
 
         // Act
@@ -169,7 +169,7 @@ public class UserCredentialServiceTest {
 
         // Assert
         assertTrue(result);
-        verify(credentialRepository).findByUserId(testUserId);
+        verify(credentialRepository).findByUser_Id(testUserId);
         verify(hashingStrategy).verify(testPassword, testPasswordHash);
     }
 
@@ -177,7 +177,7 @@ public class UserCredentialServiceTest {
     @DisplayName("verifyPassword: Should return false for incorrect password")
     void verifyPassword_ShouldReturnFalseForIncorrectPassword() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
         when(hashingStrategy.verify("wrongpassword", testPasswordHash)).thenReturn(false);
 
         // Act
@@ -185,7 +185,7 @@ public class UserCredentialServiceTest {
 
         // Assert
         assertFalse(result);
-        verify(credentialRepository).findByUserId(testUserId);
+        verify(credentialRepository).findByUser_Id(testUserId);
         verify(hashingStrategy).verify("wrongpassword", testPasswordHash);
     }
 
@@ -215,7 +215,7 @@ public class UserCredentialServiceTest {
     @DisplayName("verifyPassword: Should throw exception when credentials not found")
     void verifyPassword_ShouldFailWhenCredentialsNotFound() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.empty());
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.empty());
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
@@ -234,7 +234,7 @@ public class UserCredentialServiceTest {
         String newPassword = "NewSecurePass123!";
         String newPasswordHash = "hashed_new_secure_pass_123";
 
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
         when(hashingStrategy.hash(newPassword)).thenReturn(newPasswordHash);
         when(credentialRepository.save(any(UserCredential.class))).thenReturn(testCredential);
 
@@ -242,7 +242,7 @@ public class UserCredentialServiceTest {
         userCredentialService.updatePassword(testUserId, newPassword);
 
         // Assert
-        verify(credentialRepository).findByUserId(testUserId);
+        verify(credentialRepository).findByUser_Id(testUserId);
         verify(hashingStrategy).hash(newPassword);
         verify(credentialRepository).save(testCredential);
         assertEquals(newPasswordHash, testCredential.getPasswordHash());
@@ -274,7 +274,7 @@ public class UserCredentialServiceTest {
     @DisplayName("updatePassword: Should throw exception when credentials not found")
     void updatePassword_ShouldFailWhenCredentialsNotFound() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.empty());
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.empty());
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
@@ -298,7 +298,7 @@ public class UserCredentialServiceTest {
 
         when(changePasswordDTOSanitizer.sanitize(any())).thenReturn(dto);
         when(changePasswordDTOValidator.validate(any())).thenReturn(ValidationResult.success(dto));
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
         when(hashingStrategy.verify(currentPassword, testPasswordHash)).thenReturn(true);
         when(hashingStrategy.hash(newPassword)).thenReturn(newPasswordHash);
         when(credentialRepository.save(any(UserCredential.class))).thenReturn(testCredential);
@@ -307,7 +307,7 @@ public class UserCredentialServiceTest {
         userCredentialService.changePassword(testUserId, dto);
 
         // Assert
-        verify(credentialRepository, times(2)).findByUserId(testUserId);
+        verify(credentialRepository, times(2)).findByUser_Id(testUserId);
         verify(hashingStrategy).verify(currentPassword, testPasswordHash);
         verify(hashingStrategy).hash(newPassword);
         verify(credentialRepository).save(any(UserCredential.class));
@@ -324,7 +324,7 @@ public class UserCredentialServiceTest {
 
         when(changePasswordDTOSanitizer.sanitize(any())).thenReturn(dto);
         when(changePasswordDTOValidator.validate(any())).thenReturn(ValidationResult.success(dto));
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
         when(hashingStrategy.verify(currentPassword, testPasswordHash)).thenReturn(false);
 
         // Act & Assert
@@ -388,7 +388,7 @@ public class UserCredentialServiceTest {
     @DisplayName("getCredentialByUserId: Should successfully retrieve credentials")
     void getCredentialByUserId_ShouldSucceed() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.of(testCredential));
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
 
         // Act
         UserCredential result = userCredentialService.getCredentialByUserId(testUserId);
@@ -397,7 +397,7 @@ public class UserCredentialServiceTest {
         assertNotNull(result);
         assertEquals(testUserId, result.getUserId());
         assertEquals(testPasswordHash, result.getPasswordHash());
-        verify(credentialRepository).findByUserId(testUserId);
+        verify(credentialRepository).findByUser_Id(testUserId);
     }
 
     @Test
@@ -415,7 +415,7 @@ public class UserCredentialServiceTest {
     @DisplayName("getCredentialByUserId: Should throw exception when credentials not found")
     void getCredentialByUserId_ShouldFailWhenCredentialsNotFound() {
         // Arrange
-        when(credentialRepository.findByUserId(testUserId)).thenReturn(Optional.empty());
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.empty());
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->

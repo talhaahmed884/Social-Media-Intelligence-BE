@@ -18,6 +18,7 @@ import com.media.intelligence.user.validation.UpdateUserProfileDTOValidatorTest;
 import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 import org.junit.platform.suite.api.SuiteDisplayName;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Test Suite for all Validation and Sanitization tests.
@@ -30,19 +31,20 @@ import org.junit.platform.suite.api.SuiteDisplayName;
  * <p>
  * Total: 15 test classes, ~210 test cases
  */
+@ActiveProfiles("test")
 @Suite
 @SuiteDisplayName("Validation and Sanitization Test Suite")
 @SelectClasses({
+        // Sanitization Rules
+        EmailNormalizationRuleTest.class,
+        WhitespaceSanitizationRuleTest.class,
+        XssSanitizationRuleTest.class,
+
         // Validation Rules
         EmailFormatRuleTest.class,
         PasswordStrengthRuleTest.class,
         RequiredRuleTest.class,
         StringLengthRuleTest.class,
-
-        // Sanitization Rules
-        WhitespaceSanitizationRuleTest.class,
-        EmailNormalizationRuleTest.class,
-        XssSanitizationRuleTest.class,
 
         // DTO Validators
         ChangePasswordDTOValidatorTest.class,

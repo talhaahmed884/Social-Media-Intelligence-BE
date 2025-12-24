@@ -45,6 +45,9 @@ public class UserServiceTest {
     @Mock
     private UserCredentialService credentialService;
 
+//    @Mock
+//    private UserCredentialRepository userCredentialRepository;
+
     @Mock
     private RegisterUserDTOValidator registerUserValidator;
 
@@ -420,6 +423,7 @@ public class UserServiceTest {
     void deleteUser_ShouldSucceed() {
         // Arrange
         when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+//        doNothing().when(userCredentialRepository).deleteByUserId(any(UUID.class));
         doNothing().when(userRepository).delete(any(User.class));
 
         // Act
