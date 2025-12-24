@@ -3,6 +3,7 @@ package com.media.intelligence.user_credential.service;
 import com.media.intelligence.common.validation.core.ValidationError;
 import com.media.intelligence.common.validation.core.ValidationResult;
 import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user.entity.User;
 import com.media.intelligence.user.exception.UserErrorCode;
 import com.media.intelligence.user.exception.UserException;
 import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
@@ -48,6 +49,7 @@ public class UserCredentialServiceTest {
     private UserCredentialService userCredentialService;
 
     private UUID testUserId;
+    private User testUser;
     private UserCredential testCredential;
     private String testPassword;
     private String testPasswordHash;
@@ -58,13 +60,19 @@ public class UserCredentialServiceTest {
         testPassword = "SecurePass123!";
         testPasswordHash = "hashed_secure_pass_123";
 
+        testUser = User.builder()
+                .email("test@example.com")
+                .fullName("Test User")
+                .build();
+        testUser.setId(testUserId);
+
         testCredential = UserCredential.builder()
                 .id(UUID.randomUUID())
+                .user(testUser)
                 .passwordHash(testPasswordHash)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
-        testCredential.setUserId(testUserId);
     }
 
     // ==================== createCredential Tests ====================
@@ -78,7 +86,7 @@ public class UserCredentialServiceTest {
         when(credentialRepository.save(any(UserCredential.class))).thenReturn(testCredential);
 
         // Act
-        UserCredential result = userCredentialService.createCredential(testUserId, testPassword);
+        UserCredential result = userCredentialService.createCredential(testUser, testPassword);
 
         // Assert
         assertNotNull(result);
@@ -89,8 +97,8 @@ public class UserCredentialServiceTest {
     }
 
     @Test
-    @DisplayName("createCredential: Should throw exception when user ID is null")
-    void createCredential_ShouldFailWhenUserIdIsNull() {
+    @DisplayName("createCredential: Should throw exception when user is null")
+    void createCredential_ShouldFailWhenUserIsNull() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
                 userCredentialService.createCredential(null, testPassword)
@@ -105,7 +113,7 @@ public class UserCredentialServiceTest {
     void createCredential_ShouldFailWhenPasswordIsNull() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                userCredentialService.createCredential(testUserId, null)
+                userCredentialService.createCredential(testUser, null)
         );
 
         assertEquals(UserCredentialErrorCode.PASSWORD_REQUIRED, exception.getErrorCode());
@@ -117,7 +125,7 @@ public class UserCredentialServiceTest {
     void createCredential_ShouldFailWhenPasswordIsEmpty() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                userCredentialService.createCredential(testUserId, "   ")
+                userCredentialService.createCredential(testUser, "   ")
         );
 
         assertEquals(UserCredentialErrorCode.PASSWORD_REQUIRED, exception.getErrorCode());
@@ -132,7 +140,7 @@ public class UserCredentialServiceTest {
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                userCredentialService.createCredential(testUserId, testPassword)
+                userCredentialService.createCredential(testUser, testPassword)
         );
 
         assertEquals(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED, exception.getErrorCode());
@@ -148,7 +156,7 @@ public class UserCredentialServiceTest {
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                userCredentialService.createCredential(testUserId, testPassword)
+                userCredentialService.createCredential(testUser, testPassword)
         );
 
         assertEquals(UserCredentialErrorCode.PASSWORD_HASH_FAILED, exception.getErrorCode());

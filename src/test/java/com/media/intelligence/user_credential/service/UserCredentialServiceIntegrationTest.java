@@ -60,7 +60,7 @@ public class UserCredentialServiceIntegrationTest {
         String password = "SecurePass123!";
 
         // Act
-        UserCredential result = credentialService.createCredential(testUser.getId(), password);
+        UserCredential result = credentialService.createCredential(testUser, password);
 
         // Assert
         assertNotNull(result);
@@ -82,7 +82,7 @@ public class UserCredentialServiceIntegrationTest {
         String password = "SecurePass123!";
 
         // Act
-        UserCredential result = credentialService.createCredential(testUser.getId(), password);
+        UserCredential result = credentialService.createCredential(testUser, password);
 
         // Assert
         assertNotEquals(password, result.getPasswordHash());
@@ -90,8 +90,8 @@ public class UserCredentialServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("createCredential: Should throw exception when user ID is null")
-    void createCredential_ShouldFailWhenUserIdIsNull() {
+    @DisplayName("createCredential: Should throw exception when user is null")
+    void createCredential_ShouldFailWhenUserIsNull() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
                 credentialService.createCredential(null, "password123!")
@@ -105,7 +105,7 @@ public class UserCredentialServiceIntegrationTest {
     void createCredential_ShouldFailWhenPasswordIsNull() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                credentialService.createCredential(testUser.getId(), null)
+                credentialService.createCredential(testUser, null)
         );
 
         assertEquals(UserCredentialErrorCode.PASSWORD_REQUIRED, exception.getErrorCode());
@@ -116,7 +116,7 @@ public class UserCredentialServiceIntegrationTest {
     void createCredential_ShouldFailWhenPasswordIsEmpty() {
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                credentialService.createCredential(testUser.getId(), "   ")
+                credentialService.createCredential(testUser, "   ")
         );
 
         assertEquals(UserCredentialErrorCode.PASSWORD_REQUIRED, exception.getErrorCode());
@@ -126,25 +126,29 @@ public class UserCredentialServiceIntegrationTest {
     @DisplayName("createCredential: Should throw exception when credentials already exist")
     void createCredential_ShouldFailWhenCredentialsExist() {
         // Arrange
-        credentialService.createCredential(testUser.getId(), "FirstPass123!");
+        credentialService.createCredential(testUser, "FirstPass123!");
 
         // Act & Assert
         UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
-                credentialService.createCredential(testUser.getId(), "SecondPass123!")
+                credentialService.createCredential(testUser, "SecondPass123!")
         );
 
         assertEquals(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED, exception.getErrorCode());
     }
 
     @Test
-    @DisplayName("createCredential: Should throw exception when user ID does not exist")
-    void createCredential_ShouldFailWhenUserIdNotFound() {
-        // Arrange
-        UUID nonExistentUserId = UUID.randomUUID();
+    @DisplayName("createCredential: Should throw exception when user is not persisted")
+    void createCredential_ShouldFailWhenUserNotPersisted() {
+        // Arrange - create a User object but don't persist it
+        User nonPersistedUser = User.builder()
+                .email("nonpersisted@example.com")
+                .fullName("Non Persisted User")
+                .build();
+        nonPersistedUser.setId(UUID.randomUUID()); // Set ID manually without persisting
 
         // Act & Assert
         assertThrows(Exception.class, () ->
-                credentialService.createCredential(nonExistentUserId, "SecurePass123!")
+                credentialService.createCredential(nonPersistedUser, "SecurePass123!")
         );
     }
 
@@ -155,7 +159,7 @@ public class UserCredentialServiceIntegrationTest {
     void verifyPassword_ShouldReturnTrueForCorrectPassword() {
         // Arrange
         String password = "SecurePass123!";
-        credentialService.createCredential(testUser.getId(), password);
+        credentialService.createCredential(testUser, password);
 
         // Act
         boolean result = credentialService.verifyPassword(testUser.getId(), password);
@@ -168,7 +172,7 @@ public class UserCredentialServiceIntegrationTest {
     @DisplayName("verifyPassword: Should return false for incorrect password")
     void verifyPassword_ShouldReturnFalseForIncorrectPassword() {
         // Arrange
-        credentialService.createCredential(testUser.getId(), "CorrectPass123!");
+        credentialService.createCredential(testUser, "CorrectPass123!");
 
         // Act
         boolean result = credentialService.verifyPassword(testUser.getId(), "WrongPass123!");
@@ -215,7 +219,7 @@ public class UserCredentialServiceIntegrationTest {
     void verifyPassword_ShouldBeCaseSensitive() {
         // Arrange
         String password = "SecurePass123!";
-        credentialService.createCredential(testUser.getId(), password);
+        credentialService.createCredential(testUser, password);
 
         // Act
         boolean result = credentialService.verifyPassword(testUser.getId(), "securepass123!");
@@ -232,7 +236,7 @@ public class UserCredentialServiceIntegrationTest {
         // Arrange
         String oldPassword = "OldPass123!";
         String newPassword = "NewPass456!";
-        credentialService.createCredential(testUser.getId(), oldPassword);
+        credentialService.createCredential(testUser, oldPassword);
 
         // Act
         credentialService.updatePassword(testUser.getId(), newPassword);
@@ -248,7 +252,7 @@ public class UserCredentialServiceIntegrationTest {
         // Arrange
         String oldPassword = "OldPass123!";
         String newPassword = "NewPass456!";
-        UserCredential credential = credentialService.createCredential(testUser.getId(), oldPassword);
+        UserCredential credential = credentialService.createCredential(testUser, oldPassword);
         String oldHash = credential.getPasswordHash();
 
         // Act
@@ -300,7 +304,7 @@ public class UserCredentialServiceIntegrationTest {
         // Arrange
         String currentPassword = "CurrentPass123!";
         String newPassword = "NewPass456!";
-        credentialService.createCredential(testUser.getId(), currentPassword);
+        credentialService.createCredential(testUser, currentPassword);
 
         ChangePasswordDTO dto = new ChangePasswordDTO(currentPassword, newPassword);
 
@@ -319,7 +323,7 @@ public class UserCredentialServiceIntegrationTest {
         String currentPassword = "CorrectPass123!";
         String wrongPassword = "WrongPass123!";
         String newPassword = "NewPass456!";
-        credentialService.createCredential(testUser.getId(), currentPassword);
+        credentialService.createCredential(testUser, currentPassword);
 
         ChangePasswordDTO dto = new ChangePasswordDTO(wrongPassword, newPassword);
 
@@ -352,7 +356,7 @@ public class UserCredentialServiceIntegrationTest {
     @DisplayName("changePassword: Should throw exception when current password is null")
     void changePassword_ShouldFailWhenCurrentPasswordIsNull() {
         // Arrange
-        credentialService.createCredential(testUser.getId(), "Pass123!");
+        credentialService.createCredential(testUser, "Pass123!");
         ChangePasswordDTO dto = new ChangePasswordDTO(null, "New123!");
 
         // Act & Assert
@@ -365,7 +369,7 @@ public class UserCredentialServiceIntegrationTest {
     @DisplayName("changePassword: Should throw exception when new password is null")
     void changePassword_ShouldFailWhenNewPasswordIsNull() {
         // Arrange
-        credentialService.createCredential(testUser.getId(), "Pass123!");
+        credentialService.createCredential(testUser, "Pass123!");
         ChangePasswordDTO dto = new ChangePasswordDTO("Pass123!", null);
 
         // Act & Assert
@@ -380,7 +384,7 @@ public class UserCredentialServiceIntegrationTest {
         // Arrange
         String currentPassword = "StrongPass123!";
         String weakPassword = "weak";
-        credentialService.createCredential(testUser.getId(), currentPassword);
+        credentialService.createCredential(testUser, currentPassword);
 
         ChangePasswordDTO dto = new ChangePasswordDTO(currentPassword, weakPassword);
 
@@ -400,7 +404,7 @@ public class UserCredentialServiceIntegrationTest {
     void getCredentialByUserId_ShouldSucceed() {
         // Arrange
         String password = "SecurePass123!";
-        UserCredential created = credentialService.createCredential(testUser.getId(), password);
+        UserCredential created = credentialService.createCredential(testUser, password);
 
         // Act
         UserCredential result = credentialService.getCredentialByUserId(testUser.getId());
@@ -444,9 +448,9 @@ public class UserCredentialServiceIntegrationTest {
         User user3 = userRepository.save(User.builder().email("user3@example.com").fullName("User 3").build());
 
         // Act
-        UserCredential cred1 = credentialService.createCredential(testUser.getId(), "Pass1!");
-        UserCredential cred2 = credentialService.createCredential(user2.getId(), "Pass2!");
-        UserCredential cred3 = credentialService.createCredential(user3.getId(), "Pass3!");
+        UserCredential cred1 = credentialService.createCredential(testUser, "Pass1!");
+        UserCredential cred2 = credentialService.createCredential(user2, "Pass2!");
+        UserCredential cred3 = credentialService.createCredential(user3, "Pass3!");
 
         // Assert
         assertNotNull(cred1);
@@ -470,8 +474,8 @@ public class UserCredentialServiceIntegrationTest {
         String samePassword = "SamePass123!";
 
         // Act
-        UserCredential cred1 = credentialService.createCredential(testUser.getId(), samePassword);
-        UserCredential cred2 = credentialService.createCredential(user2.getId(), samePassword);
+        UserCredential cred1 = credentialService.createCredential(testUser, samePassword);
+        UserCredential cred2 = credentialService.createCredential(user2, samePassword);
 
         // Assert - Hashes should be different due to salting
         assertNotEquals(cred1.getPasswordHash(), cred2.getPasswordHash());

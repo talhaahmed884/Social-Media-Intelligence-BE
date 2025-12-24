@@ -338,11 +338,9 @@ public class UserCredentialRepositoryIntegrationTest {
     @DisplayName("save: Should fail when userId references non-existent user")
     void save_ShouldFailWhenUserIdNotFound() {
         // Arrange
-        UUID nonExistentUserId = UUID.randomUUID();
+        User user = User.builder().build();
         UserCredential invalidCredential = UserCredential.builder()
-                .passwordHash("password_hash")
-                .build();
-        invalidCredential.setUserId(nonExistentUserId);
+                .passwordHash("password_hash").user(user).build();
 
         // Act & Assert
         assertThrows(Exception.class, () -> {

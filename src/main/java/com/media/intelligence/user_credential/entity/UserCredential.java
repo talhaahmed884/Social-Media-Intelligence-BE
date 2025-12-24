@@ -50,17 +50,8 @@ public class UserCredential {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // Convenience getter/setter for userId to maintain backward compatibility
+    // Convenience getter for userId to maintain backward compatibility
     public UUID getUserId() {
         return user != null ? user.getId() : null;
-    }
-
-    public void setUserId(UUID userId) {
-        if (userId != null) {
-            if (this.user == null) {
-                this.user = new User();
-            }
-            this.user.setId(userId);
-        }
     }
 }

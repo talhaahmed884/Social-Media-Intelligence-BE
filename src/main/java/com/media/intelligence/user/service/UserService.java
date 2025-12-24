@@ -100,7 +100,7 @@ public class UserService {
 
             // Create credentials in separate table
             try {
-                credentialService.createCredential(savedUser.getId(), dto.getPassword());
+                credentialService.createCredential(savedUser, dto.getPassword());
                 log.debug("Credentials created for user: {}", savedUser.getId());
             } catch (Exception e) {
                 log.error("Failed to create credentials for user {}: {}", savedUser.getId(), e.getMessage(), e);

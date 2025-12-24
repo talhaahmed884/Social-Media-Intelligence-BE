@@ -1,6 +1,7 @@
 package com.media.intelligence.user_credential.service;
 
 import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user.entity.User;
 import com.media.intelligence.user.exception.UserErrorCode;
 import com.media.intelligence.user.exception.UserException;
 import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
@@ -32,18 +33,20 @@ public class UserCredentialService {
     /**
      * Create credentials for a new user.
      *
-     * @param userId   the user ID
+     * @param user     the user entity
      * @param password the plaintext password
      * @return the created credential
-     * @throws UserCredentialException if creation fails, userId is null, or password is invalid
+     * @throws UserCredentialException if creation fails, user is null, or password is invalid
      */
     @Transactional
-    public UserCredential createCredential(UUID userId, String password) {
-        // Validate userId is not null
-        if (userId == null) {
-            log.error("Credential creation failed: userId is null");
+    public UserCredential createCredential(User user, String password) {
+        // Validate user is not null
+        if (user == null) {
+            log.error("Credential creation failed: user is null");
             throw new UserCredentialException(UserCredentialErrorCode.CREDENTIAL_CREATION_FAILED);
         }
+
+        UUID userId = user.getId();
 
         // Validate password is not null or empty
         if (password == null || password.trim().isEmpty()) {
@@ -69,11 +72,11 @@ public class UserCredentialService {
                 throw new UserCredentialException(UserCredentialErrorCode.PASSWORD_HASH_FAILED);
             }
 
-            // Build credential entity
+            // Build credential entity using the provided User object
             UserCredential credential = UserCredential.builder()
+                    .user(user)
                     .passwordHash(passwordHash)
                     .build();
-            credential.setUserId(userId);
 
             // Save to database
             UserCredential saved;

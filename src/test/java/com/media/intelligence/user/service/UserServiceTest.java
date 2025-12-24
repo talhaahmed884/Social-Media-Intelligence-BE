@@ -112,7 +112,7 @@ public class UserServiceTest {
         verify(registerUserValidator).validate(dto);
         verify(userRepository).existsByEmail("newuser@example.com");
         verify(userRepository).save(any(User.class));
-        verify(credentialService).createCredential(any(UUID.class), eq("SecurePass123!"));
+        verify(credentialService).createCredential(any(User.class), eq("SecurePass123!"));
     }
 
     @Test
