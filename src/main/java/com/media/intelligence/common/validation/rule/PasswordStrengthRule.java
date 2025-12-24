@@ -46,7 +46,7 @@ public class PasswordStrengthRule extends ValidationRule<String> {
     @Override
     protected boolean isValid(String value) {
         if (value == null || value.isBlank()) {
-            return true; // Use RequiredRule for null checks
+            return false; // Use RequiredRule for null checks
         }
 
         if (value.length() < minLength) {

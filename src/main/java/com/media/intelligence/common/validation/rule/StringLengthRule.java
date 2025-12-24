@@ -22,7 +22,7 @@ public class StringLengthRule extends ValidationRule<String> {
     @Override
     protected boolean isValid(String value) {
         if (value == null) {
-            return true; // Use RequiredRule for null checks
+            return false; // Use RequiredRule for null checks
         }
         int length = value.length();
         return length >= min && length <= max;
