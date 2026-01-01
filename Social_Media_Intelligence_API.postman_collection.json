@@ -1,0 +1,245 @@
+{
+  "info": {
+    "name": "Social Media Intelligence API",
+    "description": "Complete API collection for User Management endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const responseData = pm.response.json();",
+                  "    if (responseData.data && responseData.data.id) {",
+                  "        pm.environment.set(\"userId\", responseData.data.id);",
+                  "        console.log(\"User ID saved:\", responseData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"SecurePass123!\",\n    \"fullName\": \"John Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "register"
+              ]
+            },
+            "description": "Register a new user with email, password, and full name.\n\n**Password Requirements:**\n- Minimum 8 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character\n\n**Email Requirements:**\n- Valid email format (RFC 5322)\n- Maximum 255 characters\n\n**Full Name Requirements:**\n- 2-255 characters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Retrieve user details by their UUID.\n\nReturns user information including:\n- User ID\n- Email\n- Full Name\n- Created At timestamp\n- Updated At timestamp"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/by-email?email=john.doe@example.com",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "by-email"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "john.doe@example.com",
+                  "description": "Email address to search for"
+                }
+              ]
+            },
+            "description": "Find a user by their email address.\n\nEmail is normalized and validated before lookup."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "description": "Retrieve a list of all registered users.\n\nReturns an array of user objects."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john.updated@example.com\",\n    \"fullName\": \"John Updated Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Update user profile information (email and full name).\n\n**Note:** Password cannot be changed via this endpoint. Use the Change Password endpoint instead.\n\n**Validation:**\n- Email must be unique (cannot use email of another user)\n- Same validation rules as registration apply"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"SecurePass123!\",\n    \"newPassword\": \"NewSecurePass456!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "change-password"
+              ]
+            },
+            "description": "Change user password.\n\n**Requirements:**\n- Must provide correct current password\n- New password must meet strength requirements (8+ chars, uppercase, lowercase, digit, special char)\n\n**Errors:**\n- Returns 400 if current password is incorrect\n- Returns 400 if new password doesn't meet requirements"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Delete a user account.\n\n**Cascade Behavior:**\n- Automatically deletes associated user credentials\n- Permanently removes user data\n\n**Note:** This operation cannot be undone."
+          },
+          "response": []
+        }
+      ],
+      "description": "Complete set of User Management API endpoints.\n\n**Base URL:** http://localhost:8080 (configurable via environment variable)\n\n**API Response Format:**\n```json\n{\n    \"success\": true,\n    \"message\": \"Operation successful\",\n    \"data\": { ... },\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```\n\n**Error Response Format:**\n```json\n{\n    \"success\": false,\n    \"message\": \"Error description\",\n    \"data\": null,\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
