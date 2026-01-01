@@ -25,20 +25,16 @@ CREATE UNIQUE INDEX idx_user_email ON users (email);
 CREATE TABLE user_credentials
 (
     id            UUID PRIMARY KEY,
-    user_id       UUID      NOT NULL UNIQUE,
     password_hash TEXT      NOT NULL,
     created_at    TIMESTAMP NOT NULL,
     updated_at    TIMESTAMP NOT NULL,
 
     -- Foreign key constraint
     CONSTRAINT fk_user_credentials_user
-        FOREIGN KEY (user_id)
+        FOREIGN KEY (id)
             REFERENCES users (id)
             ON DELETE CASCADE
 );
-
--- Index on user_id for FK performance
-CREATE UNIQUE INDEX idx_user_credentials_user_id ON user_credentials (user_id);
 
 -- ============================================
 -- Trigger: Auto-update updated_at timestamp
@@ -46,26 +42,27 @@ CREATE UNIQUE INDEX idx_user_credentials_user_id ON user_credentials (user_id);
 
 -- Function to update updated_at column
 CREATE
-OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+    OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS
+$$
 BEGIN
     NEW.updated_at
-= CURRENT_TIMESTAMP;
-RETURN NEW;
+        = CURRENT_TIMESTAMP;
+    RETURN NEW;
 END;
 $$
-LANGUAGE plpgsql;
+    LANGUAGE plpgsql;
 
 -- Trigger for users table
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE
     ON users
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for user_credentials table
 CREATE TRIGGER update_user_credentials_updated_at
     BEFORE UPDATE
     ON user_credentials
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
