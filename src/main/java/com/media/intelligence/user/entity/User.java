@@ -1,5 +1,6 @@
 package com.media.intelligence.user.entity;
 
+import com.media.intelligence.user_credential.entity.UserCredential;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -46,4 +47,7 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private UserCredential credential;
 }

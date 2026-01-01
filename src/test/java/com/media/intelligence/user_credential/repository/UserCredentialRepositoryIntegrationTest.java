@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @ActiveProfiles("test")
+@Transactional
 @DisplayName("UserCredentialRepository Integration Tests")
 public class UserCredentialRepositoryIntegrationTest {
 
@@ -335,18 +337,33 @@ public class UserCredentialRepositoryIntegrationTest {
     // ==================== Foreign Key Constraint Tests ====================
 
     @Test
-    @DisplayName("save: Should fail when userId references non-existent user")
-    void save_ShouldFailWhenUserIdNotFound() {
-        // Arrange
-        User user = User.builder().build();
-        UserCredential invalidCredential = UserCredential.builder()
-                .passwordHash("password_hash").user(user).build();
+    @DisplayName("save: Should auto-persist transient user due to @MapsId (implicit cascade)")
+    void save_ShouldAutoPersistTransientUser() {
+        // Arrange - User with no ID (transient)
+        User transientUser = User.builder()
+                .email("test@test.com")
+                .fullName("Test Test")
+                .build();
 
-        // Act & Assert
-        assertThrows(Exception.class, () -> {
-            credentialRepository.save(invalidCredential);
-            entityManager.flush();
-        });
+        assertNull(transientUser.getId(), "User should not have ID before save");
+
+        UserCredential credential = UserCredential.builder()
+                .passwordHash("password_hash")
+                .user(transientUser)
+                .build();
+
+        // Act - Save credential with transient user
+        UserCredential savedCredential = credentialRepository.save(credential);
+        entityManager.flush();
+
+        // Assert - Due to @MapsId, Hibernate auto-persists the User
+        assertNotNull(transientUser.getId(), "User should be auto-persisted");
+        assertNotNull(savedCredential.getId(), "Credential should have ID");
+        assertEquals(transientUser.getId(), savedCredential.getId(),
+                "Credential should share User's ID via @MapsId");
+
+        // Verify User was actually saved to database
+        assertTrue(userRepository.existsById(transientUser.getId()));
     }
 
     // ==================== Multiple Users Tests ====================

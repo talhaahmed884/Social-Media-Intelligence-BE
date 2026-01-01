@@ -45,9 +45,6 @@ public class UserServiceTest {
     @Mock
     private UserCredentialService credentialService;
 
-//    @Mock
-//    private UserCredentialRepository userCredentialRepository;
-
     @Mock
     private RegisterUserDTOValidator registerUserValidator;
 

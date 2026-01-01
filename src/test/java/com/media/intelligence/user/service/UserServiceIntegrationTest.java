@@ -9,13 +9,13 @@ import com.media.intelligence.user.exception.UserException;
 import com.media.intelligence.user.repository.UserRepository;
 import com.media.intelligence.user_credential.entity.UserCredential;
 import com.media.intelligence.user_credential.repository.UserCredentialRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 @DisplayName("UserService Integration Tests")
 public class UserServiceIntegrationTest {
 
@@ -42,6 +41,12 @@ public class UserServiceIntegrationTest {
     void setUp() {
         credentialRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @AfterEach
+    void clearUp() {
+        userRepository.deleteAll();
+        credentialRepository.deleteAll();
     }
 
     // ==================== registerUser Tests ====================

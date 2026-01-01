@@ -4,8 +4,6 @@ import com.media.intelligence.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
@@ -17,9 +15,10 @@ import java.util.UUID;
  * <p>
  * Stores only the password hash - no account management fields.
  * <p>
- * Unidirectional @ManyToOne relationship to User:
- * - UserCredential knows about User (for FK constraint and cascade delete)
- * - User does NOT know about UserCredential (maintains loose coupling)
+ * Bidirectional @OneToOne relationship with User using shared primary key (@MapsId):
+ * - UserCredential shares the same ID as User (enforces 1:1 relationship at DB level)
+ * - User has cascade operations to UserCredential
+ * - This approach prevents "transient instance" errors and ensures referential integrity
  */
 @Entity
 @Table(name = "user_credentials")
@@ -30,13 +29,11 @@ import java.util.UUID;
 @Builder
 public class UserCredential {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true,
-            foreignKey = @ForeignKey(name = "fk_user_credentials_user"))
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "id")
     private User user;
 
     @Column(nullable = false)
