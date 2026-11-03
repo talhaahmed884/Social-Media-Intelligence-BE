@@ -2,6 +2,7 @@ package com.media.intelligence.user_credential;
 
 import com.media.intelligence.user_credential.repository.UserCredentialRepositoryIntegrationTest;
 import com.media.intelligence.user_credential.service.UserCredentialServiceIntegrationTest;
+import com.media.intelligence.user_credential.strategy.PasswordHashingStrategyTest;
 import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 import org.junit.platform.suite.api.SuiteDisplayName;
@@ -22,7 +23,8 @@ import org.springframework.test.context.ActiveProfiles;
 @SuiteDisplayName("UserCredential Domain - Integration Tests")
 @SelectClasses({
         UserCredentialRepositoryIntegrationTest.class,
-        UserCredentialServiceIntegrationTest.class
+        UserCredentialServiceIntegrationTest.class,
+        PasswordHashingStrategyTest.class
 })
 public class UserCredentialIntegrationTestSuite {
     // Integration test suite for UserCredential domain - no additional code needed

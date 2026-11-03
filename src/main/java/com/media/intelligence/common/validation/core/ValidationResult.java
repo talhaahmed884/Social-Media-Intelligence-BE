@@ -119,6 +119,21 @@ public class ValidationResult {
     }
 
     /**
+     * Get one "field: message" entry per error, suitable for ErrorResponse.errors.
+     * Rejected values are never included.
+     *
+     * @return formatted errors, or an empty list
+     */
+    public List<String> getFormattedErrors() {
+        if (errors == null) {
+            return List.of();
+        }
+        return errors.stream()
+                .map(error -> error.getField() != null ? error.toFormattedString() : error.getMessage())
+                .toList();
+    }
+
+    /**
      * Get a detailed error message with field names.
      *
      * @return formatted error messages (e.g., "email: Email is required, password: Password is too weak")

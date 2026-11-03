@@ -47,5 +47,6 @@ user suite.
 
 - `common/validation/core` and `common/sanitization/core` (`Validator`, `Sanitizer`, `RuleCombiner`) and
   `GlobalExceptionHandler` are only covered indirectly.
-- `SHA512HashingStrategy` has no dedicated test.
+- After moving or renaming a class, run `mvn clean test`. Stale `.class` files in `target/` can register a second
+  bean with the same name and break every Spring context.
 - There is no plain context-load test (a `SocialMediaIntelligenceApplicationTests`-style smoke test).

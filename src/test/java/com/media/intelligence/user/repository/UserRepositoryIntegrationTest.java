@@ -75,11 +75,14 @@ public class UserRepositoryIntegrationTest {
 
     @Test
     @DisplayName("save: Should update existing user")
-    void save_ShouldUpdateExistingUser() {
+    void save_ShouldUpdateExistingUser() throws InterruptedException {
         // Arrange
         User savedUser = userRepository.save(testUser);
         entityManager.flush();
         entityManager.clear();
+
+        // Make sure the clock moves on, otherwise insert and update can share a timestamp (flaky on fast machines)
+        Thread.sleep(5);
 
         // Act
         User foundUser = userRepository.findById(savedUser.getId()).orElseThrow();
@@ -93,7 +96,8 @@ public class UserRepositoryIntegrationTest {
         assertEquals("Updated Name", reloadedUser.getFullName());
         assertEquals(savedUser.getId(), reloadedUser.getId());
         assertEquals(savedUser.getCreatedAt(), reloadedUser.getCreatedAt());
-        assertNotEquals(savedUser.getUpdatedAt(), reloadedUser.getUpdatedAt());
+        assertTrue(reloadedUser.getUpdatedAt().isAfter(savedUser.getUpdatedAt()),
+                "updatedAt should move forward on update");
     }
 
     // ==================== FindById Tests ====================

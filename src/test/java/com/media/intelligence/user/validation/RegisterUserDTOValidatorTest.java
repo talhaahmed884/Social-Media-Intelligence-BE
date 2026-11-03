@@ -286,4 +286,21 @@ public class RegisterUserDTOValidatorTest {
         // Assert
         assertFalse(result.hasErrors(), "Should pass for 255-character email");
     }
+
+
+    @Test
+    @DisplayName("Should fail when password exceeds 72 characters (BCrypt limit)")
+    void shouldFailWhenPasswordTooLong() {
+        RegisterUserDTO dto = RegisterUserDTO.builder()
+                .email("test@example.com")
+                .password("Aa1!" + "a".repeat(69))
+                .fullName("Test User")
+                .build();
+
+        ValidationResult result = validator.validate(dto);
+
+        assertTrue(result.hasErrors());
+        assertTrue(result.getFormattedErrors().contains("password: Password must be at most 72 characters"),
+                result.getFormattedErrors().toString());
+    }
 }

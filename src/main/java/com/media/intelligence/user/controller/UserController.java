@@ -4,6 +4,7 @@ import com.media.intelligence.common.dto.api_response.ApiResponse;
 import com.media.intelligence.user.dto.*;
 import com.media.intelligence.user.entity.User;
 import com.media.intelligence.user.service.UserService;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user_credential.service.UserCredentialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

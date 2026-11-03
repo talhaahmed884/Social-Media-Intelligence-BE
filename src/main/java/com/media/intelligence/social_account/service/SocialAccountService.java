@@ -134,7 +134,7 @@ public class SocialAccountService {
         ValidationResult validationResult = linkValidator.validate(dto);
         if (validationResult.hasErrors()) {
             log.warn("Link social account validation failed: {}", validationResult.getDetailedErrorMessage());
-            throw new SocialAccountException(SocialAccountErrorCode.INVALID_INPUT);
+            throw new SocialAccountException(SocialAccountErrorCode.INVALID_INPUT, validationResult.getFormattedErrors());
         }
 
         return link(userId, platform, new SocialToken(dto.getAccessToken(), null));

@@ -17,6 +17,7 @@ import com.media.intelligence.user.validation.UpdateUserProfileDTOValidator;
 import com.media.intelligence.user_credential.service.UserCredentialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +25,17 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Service for user registration in the User Domain.
+ * Service for user management in the User Domain.
  * <p>
  * Key responsibilities:
- * - Sanitize and validate user input
- * - Enforce business rules (email uniqueness)
- * - Hash passwords securely
+ * - Sanitize and validate user input (field errors are returned to the client in ErrorResponse.errors)
+ * - Enforce business rules (email uniqueness, also under concurrent requests)
+ * - Delegate password storage to UserCredentialService
  * - Throw domain-specific UserExceptions for business rule violations
+ * <p>
+ * Domain exceptions (UserException, UserCredentialException) propagate unchanged. Unexpected failures
+ * (e.g. database outages) are not relabelled as "not found"; they propagate to the GlobalExceptionHandler
+ * and return 500 INTERNAL_SERVER_ERROR.
  */
 @Slf4j
 @Service
@@ -56,7 +61,6 @@ public class UserService {
      */
     @Transactional
     public User registerUser(RegisterUserDTO dto) {
-        // Validate DTO is not null
         if (dto == null) {
             log.error("Registration failed: DTO is null");
             throw new UserException(UserErrorCode.INVALID_INPUT);
@@ -64,59 +68,26 @@ public class UserService {
 
         log.info("Attempting to register user with email: {}", dto.getEmail());
 
-        try {
-            // Step 1: Sanitize the DTO (modifies in place)
-            registerUserSanitizer.sanitize(dto);
-            log.debug("DTO sanitized: email={}, fullName={}", dto.getEmail(), dto.getFullName());
+        // Step 1: Sanitize (modifies in place), then validate
+        registerUserSanitizer.sanitize(dto);
+        requireValid(registerUserValidator.validate(dto), UserErrorCode.INVALID_INPUT, "Registration");
 
-            // Step 2: Validate the sanitized DTO
-            ValidationResult validationResult = registerUserValidator.validate(dto);
-            if (validationResult.hasErrors()) {
-                log.warn("Registration validation failed: {}", validationResult.getDetailedErrorMessage());
-                throw new UserException(UserErrorCode.INVALID_INPUT);
-            }
-
-            // Business Rule: Email must be unique
-            if (userRepository.existsByEmail(dto.getEmail())) {
-                log.warn("Registration failed: Email already exists: {}", dto.getEmail());
-                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
-            }
-
-            // Create user entity (without password)
-            User user = User.builder()
-                    .email(dto.getEmail())           // Already sanitized and normalized
-                    .fullName(dto.getFullName())     // Already sanitized
-                    .build();
-
-            // Persist user
-            User savedUser;
-            try {
-                savedUser = userRepository.save(user);
-                log.info("User registered successfully with ID: {}", savedUser.getId());
-            } catch (Exception e) {
-                log.error("Failed to save user to database: {}", e.getMessage(), e);
-                throw new UserException(UserErrorCode.REGISTRATION_FAILED);
-            }
-
-            // Create credentials in separate table
-            try {
-                credentialService.createCredential(savedUser, dto.getPassword());
-                log.debug("Credentials created for user: {}", savedUser.getId());
-            } catch (Exception e) {
-                log.error("Failed to create credentials for user {}: {}", savedUser.getId(), e.getMessage(), e);
-                throw new UserException(UserErrorCode.REGISTRATION_FAILED);
-            }
-
-            return savedUser;
-
-        } catch (UserException e) {
-            // Re-throw UserException as-is
-            throw e;
-        } catch (Exception e) {
-            // Catch any unexpected exceptions
-            log.error("Unexpected error during user registration: {}", e.getMessage(), e);
-            throw new UserException(UserErrorCode.REGISTRATION_FAILED);
+        // Step 2: Business rule - email must be unique
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            log.warn("Registration failed: Email already exists: {}", dto.getEmail());
+            throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
+
+        // Step 3: Persist user, then credentials in the same transaction
+        User savedUser = saveEnforcingUniqueEmail(User.builder()
+                .email(dto.getEmail())           // Already sanitized and normalized
+                .fullName(dto.getFullName())     // Already sanitized
+                .build());
+
+        credentialService.createCredential(savedUser, dto.getPassword());
+
+        log.info("User registered successfully with ID: {}", savedUser.getId());
+        return savedUser;
     }
 
     /**
@@ -127,26 +98,16 @@ public class UserService {
      * @throws UserException if user not found or userId is null
      */
     public User findUserById(UUID userId) {
-        // Validate userId is not null
         if (userId == null) {
             log.error("Find user failed: userId is null");
             throw new UserException(UserErrorCode.USER_ID_INVALID);
         }
 
-        try {
-            return userRepository.findById(userId)
-                    .orElseThrow(() -> {
-                        log.warn("User not found for userId: {}", userId);
-                        return new UserException(UserErrorCode.USER_NOT_FOUND);
-                    });
-        } catch (UserException e) {
-            // Re-throw UserException as-is
-            throw e;
-        } catch (Exception e) {
-            // Catch any unexpected database errors
-            log.error("Unexpected error while finding user by ID {}: {}", userId, e.getMessage(), e);
-            throw new UserException(UserErrorCode.USER_NOT_FOUND);
-        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("User not found for userId: {}", userId);
+                    return new UserException(UserErrorCode.USER_NOT_FOUND);
+                });
     }
 
     /**
@@ -159,41 +120,19 @@ public class UserService {
      * @throws UserException if validation fails or user not found
      */
     public User findUserByEmail(FindUserByEmailDTO dto) {
-        // Validate DTO is not null
         if (dto == null) {
             log.error("Find user by email failed: DTO is null");
             throw new UserException(UserErrorCode.INVALID_INPUT);
         }
 
-        log.debug("Finding user by email: {}", dto.getEmail());
+        findUserByEmailSanitizer.sanitize(dto);
+        requireValid(findUserByEmailValidator.validate(dto), UserErrorCode.INVALID_EMAIL_FORMAT, "Find user by email");
 
-        try {
-            // Step 1: Sanitize the DTO (modifies in place)
-            findUserByEmailSanitizer.sanitize(dto);
-            log.debug("DTO sanitized: email={}", dto.getEmail());
-
-            // Step 2: Validate the sanitized DTO
-            ValidationResult validationResult = findUserByEmailValidator.validate(dto);
-            if (validationResult.hasErrors()) {
-                log.warn("Find user by email validation failed: {}", validationResult.getDetailedErrorMessage());
-                throw new UserException(UserErrorCode.INVALID_EMAIL_FORMAT);
-            }
-
-            // Step 3: Find user
-            return userRepository.findByEmail(dto.getEmail())
-                    .orElseThrow(() -> {
-                        log.warn("User not found for email: {}", dto.getEmail());
-                        return new UserException(UserErrorCode.USER_NOT_FOUND);
-                    });
-
-        } catch (UserException e) {
-            // Re-throw UserException as-is
-            throw e;
-        } catch (Exception e) {
-            // Catch any unexpected database errors
-            log.error("Unexpected error while finding user by email: {}", e.getMessage(), e);
-            throw new UserException(UserErrorCode.USER_NOT_FOUND);
-        }
+        return userRepository.findByEmail(dto.getEmail())
+                .orElseThrow(() -> {
+                    log.warn("User not found for email: {}", dto.getEmail());
+                    return new UserException(UserErrorCode.USER_NOT_FOUND);
+                });
     }
 
     /**
@@ -202,13 +141,8 @@ public class UserService {
      * @return list of all users
      */
     public List<User> getAllUsers() {
-        try {
-            log.debug("Fetching all users");
-            return userRepository.findAll();
-        } catch (Exception e) {
-            log.error("Unexpected error while fetching all users: {}", e.getMessage(), e);
-            throw new UserException(UserErrorCode.USER_NOT_FOUND);
-        }
+        log.debug("Fetching all users");
+        return userRepository.findAll();
     }
 
     /**
@@ -223,7 +157,6 @@ public class UserService {
      */
     @Transactional
     public User updateUserProfile(UUID userId, UpdateUserProfileDTO dto) {
-        // Validate inputs
         if (userId == null) {
             log.error("Update user failed: userId is null");
             throw new UserException(UserErrorCode.USER_ID_INVALID);
@@ -236,50 +169,26 @@ public class UserService {
 
         log.info("Attempting to update user profile for userId: {}", userId);
 
-        try {
-            // Step 1: Sanitize the DTO
-            updateUserProfileSanitizer.sanitize(dto);
-            log.debug("DTO sanitized: email={}, fullName={}", dto.getEmail(), dto.getFullName());
+        // Step 1: Sanitize, then validate
+        updateUserProfileSanitizer.sanitize(dto);
+        requireValid(updateUserProfileValidator.validate(dto), UserErrorCode.INVALID_INPUT, "Update profile");
 
-            // Step 2: Validate the sanitized DTO
-            ValidationResult validationResult = updateUserProfileValidator.validate(dto);
-            if (validationResult.hasErrors()) {
-                log.warn("Update profile validation failed: {}", validationResult.getDetailedErrorMessage());
-                throw new UserException(UserErrorCode.INVALID_INPUT);
-            }
+        // Step 2: Find the existing user
+        User existingUser = findUserById(userId);
 
-            // Step 3: Find the existing user
-            User existingUser = findUserById(userId);
-
-            // Step 4: Check if email is being changed to one that already exists
-            if (!existingUser.getEmail().equals(dto.getEmail()) &&
-                    userRepository.existsByEmail(dto.getEmail())) {
-                log.warn("Update failed: Email already exists: {}", dto.getEmail());
-                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
-            }
-
-            // Step 5: Update user fields
-            existingUser.setEmail(dto.getEmail());
-            existingUser.setFullName(dto.getFullName());
-
-            // Step 6: Save updated user
-            User updatedUser;
-            try {
-                updatedUser = userRepository.save(existingUser);
-                log.info("User profile updated successfully for userId: {}", userId);
-            } catch (Exception e) {
-                log.error("Failed to update user in database: {}", e.getMessage(), e);
-                throw new UserException(UserErrorCode.UPDATE_FAILED);
-            }
-
-            return updatedUser;
-
-        } catch (UserException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error during user profile update: {}", e.getMessage(), e);
-            throw new UserException(UserErrorCode.UPDATE_FAILED);
+        // Step 3: Business rule - a changed email must not belong to another user
+        if (!existingUser.getEmail().equals(dto.getEmail()) && userRepository.existsByEmail(dto.getEmail())) {
+            log.warn("Update failed: Email already exists: {}", dto.getEmail());
+            throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
+
+        // Step 4: Update and save
+        existingUser.setEmail(dto.getEmail());
+        existingUser.setFullName(dto.getFullName());
+        User updatedUser = saveEnforcingUniqueEmail(existingUser);
+
+        log.info("User profile updated successfully for userId: {}", userId);
+        return updatedUser;
     }
 
     /**
@@ -287,11 +196,10 @@ public class UserService {
      * Also deletes associated credentials (CASCADE delete via FK constraint).
      *
      * @param userId the user ID
-     * @throws UserException if user not found or delete fails
+     * @throws UserException if user not found
      */
     @Transactional
     public void deleteUser(UUID userId) {
-        // Validate userId
         if (userId == null) {
             log.error("Delete user failed: userId is null");
             throw new UserException(UserErrorCode.USER_ID_INVALID);
@@ -299,24 +207,34 @@ public class UserService {
 
         log.info("Attempting to delete user with userId: {}", userId);
 
+        User user = findUserById(userId);
+        userRepository.delete(user);
+
+        log.info("User deleted successfully: {}", userId);
+    }
+
+    /**
+     * Throw a UserException carrying the field errors if validation failed.
+     */
+    private void requireValid(ValidationResult result, UserErrorCode errorCode, String operation) {
+        if (result.hasErrors()) {
+            log.warn("{} validation failed: {}", operation, result.getDetailedErrorMessage());
+            throw new UserException(errorCode, result.getFormattedErrors());
+        }
+    }
+
+    /**
+     * Save and flush so a unique-email violation from a concurrent request surfaces here
+     * (as EMAIL_ALREADY_EXISTS) instead of as a 500 at commit time.
+     */
+    private User saveEnforcingUniqueEmail(User user) {
         try {
-            // Check if user exists
-            User user = findUserById(userId);
-
-            // Delete user (credentials will be cascade deleted via FK)
-            try {
-                userRepository.delete(user);
-                log.info("User deleted successfully: {}", userId);
-            } catch (Exception e) {
-                log.error("Failed to delete user from database: {}", e.getMessage(), e);
-                throw new UserException(UserErrorCode.DELETE_FAILED);
-            }
-
-        } catch (UserException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error during user deletion: {}", e.getMessage(), e);
-            throw new UserException(UserErrorCode.DELETE_FAILED);
+            User saved = userRepository.save(user);
+            userRepository.flush();
+            return saved;
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Save failed on a constraint (concurrent duplicate email?): {}", user.getEmail());
+            throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS, e);
         }
     }
 }

@@ -38,8 +38,9 @@ Code here is used by every domain package. It must not import anything from a do
   leaves the value unchanged.
 - `XssSanitizationRule` only runs jsoup when the value looks like it contains an HTML tag. Otherwise it returns the
   value as is.
-- `GlobalExceptionHandler.handleBaseException` returns only `errorCode` + `message`. It never fills `errors[]`, so
-  field-level validation details don't reach API clients (they are only logged by the services).
+- `GlobalExceptionHandler.handleBaseException` returns `errorCode` + `message`, plus `errors[]` when the
+  exception was built with `BaseException(errorCode, List<String> errors)`. Services pass
+  `ValidationResult.getFormattedErrors()` (`"field: message"`, never the rejected value).
 - The `MethodArgumentNotValidException` handler is left over from Jakarta validation and is effectively unused.
 - `MethodArgumentTypeMismatchException` (for example a malformed UUID path variable or a non-numeric `?limit=`)
   returns 400 `INVALID_INPUT`. Before this handler existed, those requests fell through to the 500 catch-all.

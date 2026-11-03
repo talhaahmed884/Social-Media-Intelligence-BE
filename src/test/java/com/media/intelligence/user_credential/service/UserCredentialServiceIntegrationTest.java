@@ -1,9 +1,9 @@
 package com.media.intelligence.user_credential.service;
 
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.strategy.SHA512HashingStrategy;
+import com.media.intelligence.user_credential.strategy.BCryptHashingStrategy;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user.entity.User;
-import com.media.intelligence.user.exception.UserErrorCode;
-import com.media.intelligence.user.exception.UserException;
 import com.media.intelligence.user.repository.UserRepository;
 import com.media.intelligence.user_credential.entity.UserCredential;
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
@@ -345,11 +345,11 @@ public class UserCredentialServiceIntegrationTest {
         ChangePasswordDTO dto = new ChangePasswordDTO("Current123!", "New123!");
 
         // Act & Assert
-        UserException exception = assertThrows(UserException.class, () ->
+        UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
                 credentialService.changePassword(null, dto)
         );
 
-        assertEquals(UserErrorCode.INVALID_INPUT, exception.getErrorCode());
+        assertEquals(UserCredentialErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -389,7 +389,7 @@ public class UserCredentialServiceIntegrationTest {
         ChangePasswordDTO dto = new ChangePasswordDTO(currentPassword, weakPassword);
 
         // Act & Assert
-        assertThrows(UserException.class, () ->
+        assertThrows(UserCredentialException.class, () ->
                 credentialService.changePassword(testUser.getId(), dto)
         );
 
@@ -479,5 +479,34 @@ public class UserCredentialServiceIntegrationTest {
 
         // Assert - Hashes should be different due to salting
         assertNotEquals(cred1.getPasswordHash(), cred2.getPasswordHash());
+    }
+
+    // ==================== Hash upgrade Tests ====================
+
+    @Test
+    @DisplayName("verifyPassword: Should accept a legacy SHA-512 hash and upgrade it to BCrypt")
+    void verifyPassword_ShouldUpgradeLegacyHash() {
+        // Arrange: simulate a credential created before the switch to BCrypt
+        UserCredential credential = credentialService.createCredential(testUser, "LegacyPass123!");
+        credential.setPasswordHash(new SHA512HashingStrategy().hash("LegacyPass123!"));
+        credentialRepository.save(credential);
+
+        // Act
+        boolean valid = credentialService.verifyPassword(testUser.getId(), "LegacyPass123!");
+
+        // Assert
+        assertTrue(valid);
+        String storedHash = credentialRepository.findByUser_Id(testUser.getId()).orElseThrow().getPasswordHash();
+        assertTrue(BCryptHashingStrategy.isBCryptHash(storedHash), "Legacy hash should be upgraded to BCrypt");
+        assertTrue(credentialService.verifyPassword(testUser.getId(), "LegacyPass123!"));
+        assertFalse(credentialService.verifyPassword(testUser.getId(), "WrongPass123!"));
+    }
+
+    @Test
+    @DisplayName("createCredential: Should store BCrypt hashes")
+    void createCredential_ShouldStoreBCryptHash() {
+        UserCredential credential = credentialService.createCredential(testUser, "SecurePass123!");
+
+        assertTrue(BCryptHashingStrategy.isBCryptHash(credential.getPasswordHash()));
     }
 }

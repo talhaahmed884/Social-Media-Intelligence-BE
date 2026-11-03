@@ -1,13 +1,12 @@
 package com.media.intelligence.user_credential.service;
 
+import java.util.List;
 import com.media.intelligence.common.validation.core.ValidationError;
 import com.media.intelligence.common.validation.core.ValidationResult;
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user.entity.User;
-import com.media.intelligence.user.exception.UserErrorCode;
-import com.media.intelligence.user.exception.UserException;
-import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
-import com.media.intelligence.user.validation.ChangePasswordDTOValidator;
+import com.media.intelligence.user_credential.sanitization.ChangePasswordDTOSanitizer;
+import com.media.intelligence.user_credential.validation.ChangePasswordDTOValidator;
 import com.media.intelligence.user_credential.entity.UserCredential;
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
 import com.media.intelligence.user_credential.exception.UserCredentialException;
@@ -383,11 +382,11 @@ public class UserCredentialServiceTest {
         when(changePasswordDTOSanitizer.sanitize(any())).thenReturn(dto);
         when(changePasswordDTOValidator.validate(any())).thenReturn(ValidationResult.failure(ValidationError.builder().
                 code("REQUIRED").message("This field is required").build()));
-        UserException exception = assertThrows(UserException.class, () ->
+        UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
                 userCredentialService.changePassword(testUserId, dto)
         );
 
-        assertEquals(UserErrorCode.INVALID_INPUT, exception.getErrorCode());
+        assertEquals(UserCredentialErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     // ==================== getCredentialByUserId Tests ====================
@@ -431,5 +430,71 @@ public class UserCredentialServiceTest {
         );
 
         assertEquals(UserCredentialErrorCode.CREDENTIAL_NOT_FOUND, exception.getErrorCode());
+    }
+
+    // ==================== Hash upgrade Tests ====================
+
+    @Test
+    @DisplayName("verifyPassword: Should upgrade a legacy/outdated hash after successful verification")
+    void verifyPassword_ShouldUpgradeHashWhenNeeded() {
+        // Arrange
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
+        when(hashingStrategy.verify(testPassword, testPasswordHash)).thenReturn(true);
+        when(hashingStrategy.needsRehash(testPasswordHash)).thenReturn(true);
+        when(hashingStrategy.hash(testPassword)).thenReturn("$2a$12$upgradedhash");
+
+        // Act
+        boolean result = userCredentialService.verifyPassword(testUserId, testPassword);
+
+        // Assert
+        assertTrue(result);
+        assertEquals("$2a$12$upgradedhash", testCredential.getPasswordHash());
+        verify(credentialRepository).save(testCredential);
+    }
+
+    @Test
+    @DisplayName("verifyPassword: Should not touch the hash after a failed verification")
+    void verifyPassword_ShouldNotUpgradeOnFailure() {
+        // Arrange
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
+        when(hashingStrategy.verify("WrongPass1!", testPasswordHash)).thenReturn(false);
+
+        // Act & Assert
+        assertFalse(userCredentialService.verifyPassword(testUserId, "WrongPass1!"));
+        verify(hashingStrategy, never()).needsRehash(any());
+        verify(credentialRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("verifyPassword: Should still succeed when the hash upgrade fails")
+    void verifyPassword_ShouldSucceedWhenUpgradeFails() {
+        // Arrange
+        when(credentialRepository.findByUser_Id(testUserId)).thenReturn(Optional.of(testCredential));
+        when(hashingStrategy.verify(testPassword, testPasswordHash)).thenReturn(true);
+        when(hashingStrategy.needsRehash(testPasswordHash)).thenReturn(true);
+        when(hashingStrategy.hash(testPassword)).thenThrow(new RuntimeException("hashing unavailable"));
+
+        // Act & Assert
+        assertTrue(userCredentialService.verifyPassword(testUserId, testPassword));
+        assertEquals(testPasswordHash, testCredential.getPasswordHash());
+        verify(credentialRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("changePassword: Should return field errors when validation fails")
+    void changePassword_ShouldReturnFieldErrors() {
+        // Arrange
+        ChangePasswordDTO dto = new ChangePasswordDTO("Current123!", "weak");
+        when(changePasswordDTOSanitizer.sanitize(any())).thenReturn(dto);
+        when(changePasswordDTOValidator.validate(any())).thenReturn(ValidationResult.failure(ValidationError.builder()
+                .field("newPassword").code("WEAK_PASSWORD").message("Password does not meet security requirements").build()));
+
+        // Act
+        UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
+                userCredentialService.changePassword(testUserId, dto));
+
+        // Assert
+        assertEquals(UserCredentialErrorCode.INVALID_INPUT, exception.getErrorCode());
+        assertEquals(List.of("newPassword: Password does not meet security requirements"), exception.getErrors());
     }
 }

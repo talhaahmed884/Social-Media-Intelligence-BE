@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * <p>
  * Validation rules:
  * - email: Required, valid email format, max 255 characters
- * - password: Required, STRONG complexity (8+ chars, uppercase, lowercase, digit, special)
+ * - password: Required, STRONG complexity (8+ chars, uppercase, lowercase, digit, special), max 72 chars (BCrypt limit)
  * - fullName: Required, 2-255 characters
  */
 @Component
@@ -29,7 +29,8 @@ public class RegisterUserDTOValidator {
                         new StringLengthRule(1, 255))
                 .field("password",
                         new RequiredRule<>(),
-                        PasswordStrengthRule.strong())
+                        PasswordStrengthRule.strong(),
+                        new StringLengthRule(1, 72, "Password must be at most 72 characters"))
                 .field("fullName",
                         new RequiredRule<>(),
                         new StringLengthRule(2, 255));

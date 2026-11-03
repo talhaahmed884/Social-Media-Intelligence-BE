@@ -1,5 +1,7 @@
 package com.media.intelligence.user.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import com.media.intelligence.common.validation.core.ValidationError;
 import com.media.intelligence.common.validation.core.ValidationResult;
 import com.media.intelligence.user.dto.FindUserByEmailDTO;
@@ -456,5 +458,54 @@ public class UserServiceTest {
 
         assertEquals(UserErrorCode.USER_NOT_FOUND, exception.getErrorCode());
         verify(userRepository, never()).delete(any());
+    }
+
+    // ==================== Error mapping Tests ====================
+
+    @Test
+    @DisplayName("registerUser: Should return field errors when validation fails")
+    void registerUser_ShouldReturnFieldErrors() {
+        // Arrange
+        RegisterUserDTO dto = RegisterUserDTO.builder().email("bad").password("SecurePass123!").fullName("Test User").build();
+        when(registerUserValidator.validate(any())).thenReturn(ValidationResult.failure(ValidationError.builder()
+                .field("email").code("INVALID_EMAIL").message("Email must be valid").build()));
+
+        // Act
+        UserException exception = assertThrows(UserException.class, () -> userService.registerUser(dto));
+
+        // Assert
+        assertEquals(UserErrorCode.INVALID_INPUT, exception.getErrorCode());
+        assertEquals(List.of("email: Email must be valid"), exception.getErrors());
+    }
+
+    @Test
+    @DisplayName("registerUser: Should map a concurrent duplicate email (constraint violation) to EMAIL_ALREADY_EXISTS")
+    void registerUser_ShouldMapConstraintViolationToEmailExists() {
+        // Arrange: existsByEmail passed, but another request inserted the same email first
+        RegisterUserDTO dto = RegisterUserDTO.builder()
+                .email("race@example.com").password("SecurePass123!").fullName("Test User").build();
+        when(registerUserValidator.validate(any())).thenReturn(ValidationResult.success(dto));
+        when(userRepository.existsByEmail("race@example.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        doThrow(new DataIntegrityViolationException("idx_user_email")).when(userRepository).flush();
+
+        // Act
+        UserException exception = assertThrows(UserException.class, () -> userService.registerUser(dto));
+
+        // Assert
+        assertEquals(UserErrorCode.EMAIL_ALREADY_EXISTS, exception.getErrorCode());
+        verify(credentialService, never()).createCredential(any(), any());
+    }
+
+    @Test
+    @DisplayName("findUserById / getAllUsers: Should not relabel database failures as USER_NOT_FOUND")
+    void databaseFailures_ShouldPropagate() {
+        // Arrange
+        when(userRepository.findById(testUserId)).thenThrow(new DataAccessResourceFailureException("db down"));
+        when(userRepository.findAll()).thenThrow(new DataAccessResourceFailureException("db down"));
+
+        // Act & Assert
+        assertThrows(DataAccessResourceFailureException.class, () -> userService.findUserById(testUserId));
+        assertThrows(DataAccessResourceFailureException.class, () -> userService.getAllUsers());
     }
 }

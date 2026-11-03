@@ -87,6 +87,12 @@
             <version>1.2.3</version>
         </dependency>
 
+        <!-- Password hashing (BCrypt) only; does not enable Spring Security auto-configuration -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <!-- AspectJ for AOP support (validation interceptor) -->
         <dependency>
             <groupId>org.aspectj</groupId>

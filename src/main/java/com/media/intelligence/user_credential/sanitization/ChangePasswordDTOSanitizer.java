@@ -1,8 +1,8 @@
-package com.media.intelligence.user.sanitization;
+package com.media.intelligence.user_credential.sanitization;
 
 import com.media.intelligence.common.sanitization.core.Sanitizer;
 import com.media.intelligence.common.sanitization.rule.WhitespaceSanitizationRule;
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import org.springframework.stereotype.Component;
 
 /**

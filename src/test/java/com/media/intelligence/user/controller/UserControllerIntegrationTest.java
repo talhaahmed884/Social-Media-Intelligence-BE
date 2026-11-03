@@ -1,7 +1,7 @@
 package com.media.intelligence.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user.dto.RegisterUserDTO;
 import com.media.intelligence.user.dto.UpdateUserProfileDTO;
 import com.media.intelligence.user.repository.UserRepository;
@@ -137,7 +137,9 @@ public class UserControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("USR_012"))
+                .andExpect(jsonPath("$.errors[0]").value("email: Email must be valid"));
     }
 
     @Test
@@ -487,7 +489,9 @@ public class UserControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(changeDto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("CRED_013"))
+                .andExpect(jsonPath("$.errors[0]").value("newPassword: Password does not meet security requirements"));
     }
 
     // ==================== End-to-End Flow Tests ====================

@@ -24,7 +24,9 @@ public enum UserCredentialErrorCode implements ErrorCode {
     PASSWORD_REQUIRED("CRED_008", "Password is required", HttpStatus.BAD_REQUEST),
     PASSWORD_HASH_EMPTY("CRED_009", "Password hash cannot be null or empty", HttpStatus.BAD_REQUEST),
     INVALID_PASSWORD_HASH("CRED_010", "Invalid password hash", HttpStatus.BAD_REQUEST),
-    CURRENT_PASSWORD_MISMATCH("CRED_011", "Current password is incorrect", HttpStatus.UNAUTHORIZED);
+    CURRENT_PASSWORD_MISMATCH("CRED_011", "Current password is incorrect", HttpStatus.UNAUTHORIZED),
+    PASSWORD_TOO_LONG("CRED_012", "Password must be at most 72 bytes", HttpStatus.BAD_REQUEST),
+    INVALID_INPUT("CRED_013", "Invalid input data", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

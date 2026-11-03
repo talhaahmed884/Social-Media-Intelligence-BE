@@ -1,6 +1,6 @@
-package com.media.intelligence.user.sanitization;
+package com.media.intelligence.user_credential.sanitization;
 
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

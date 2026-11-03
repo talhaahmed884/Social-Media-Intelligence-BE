@@ -22,13 +22,13 @@ or an existing token, stores tokens encrypted, refreshes them, and serves live p
 |----------------------------------------------------------------|---------------------------------------------------------------------|
 | `src/main/java/com/media/intelligence/common/CLAUDE.md`         | API envelopes, the error-code/exception model, the custom validation and sanitization framework |
 | `src/main/java/com/media/intelligence/user/CLAUDE.md`           | User domain, endpoints, rules; the template for new domains         |
-| `src/main/java/com/media/intelligence/user_credential/CLAUDE.md`| Password hashing (SHA-512, not BCrypt), shared-PK entity, change-password flow |
+| `src/main/java/com/media/intelligence/user_credential/CLAUDE.md`| Password hashing (BCrypt, legacy SHA-512 upgraded on verify), shared-PK entity, change-password flow |
 | `src/main/java/com/media/intelligence/social_connector/CLAUDE.md`| Stateless connector design, per-platform subpackages, OAuth capability, error/retry/rate-limit rules, config, how to add a platform, Instagram API notes |
 | `src/main/java/com/media/intelligence/social_account/CLAUDE.md` | Linked accounts: endpoints, OAuth flow, token encryption, re-auth status, refresh job |
 | `src/test/java/com/media/intelligence/CLAUDE.md`                | Test types, naming, suites, coverage gaps                           |
 
 Human-facing docs: `README.md`, `POSTMAN_GUIDE.md` (plus the two Postman JSON files at the repo root), and
-`SOCIAL_CONNECTOR_GUIDE.md`. They contain some stale claims (BCrypt, `application.properties`, Boot 4/Java 25). When
+`SOCIAL_CONNECTOR_GUIDE.md`. The README has some stale claims (`application.properties`, Boot 4/Java 25). When
 they disagree with the code, trust the code.
 
 ### Keeping these notes current (do this as part of every change)
@@ -68,6 +68,7 @@ connector), plus shared `CommonErrorCode` names. Every domain's codes implement 
   variables: `SOCIAL_TOKEN_ENCRYPTION_KEY` (required to link accounts; generate with `openssl rand -base64 32`),
   `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET` and `INSTAGRAM_REDIRECT_URI` (for OAuth), and
   `SOCIAL_OAUTH_STATE_SECRET` (when running more than one instance).
+- `user-credential.bcrypt-strength` (default 12) sets the BCrypt cost. The test profile uses 4 to keep tests fast.
 - `Clock` is a UTC bean (in `SocialConnectorConfig`). Inject it instead of calling `LocalDateTime.now()` in new
   code.
 - Logs go to the console and to `logs/application.log`. Hibernate SQL and bind parameters are logged at
@@ -99,5 +100,7 @@ both are required for compilation.
   refresh, REAUTH_REQUIRED status, live fetch endpoints).
 - Next: run against the real Instagram API with a Meta app, persist fetched posts and comments for analytics, add
   pagination, add Postman entries for the social endpoints.
-- Not started (roadmap in README): JWT auth and login (no endpoint is protected today), stronger password hashing,
-  more platforms, scheduled data collection, analytics.
+- Done: BCrypt password hashing (legacy SHA-512 hashes are upgraded on the next successful verification),
+  field-level validation errors in `ErrorResponse.errors`, and change-password classes moved to `user_credential`.
+- Not started (roadmap in README): JWT auth and login (no endpoint is protected today), more platforms, scheduled
+  data collection, analytics.

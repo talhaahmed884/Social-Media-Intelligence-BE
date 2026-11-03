@@ -1,7 +1,7 @@
-package com.media.intelligence.user.validation;
+package com.media.intelligence.user_credential.validation;
 
 import com.media.intelligence.common.validation.core.ValidationResult;
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -216,5 +216,34 @@ public class ChangePasswordDTOValidatorTest {
 
         // Assert
         assertFalse(result.hasErrors(), "Should pass for minimum valid newPassword");
+    }
+
+
+    @Test
+    @DisplayName("Should accept a weak current password (it is checked against the stored hash, not strength rules)")
+    void shouldAcceptWeakCurrentPassword() {
+        ChangePasswordDTO dto = ChangePasswordDTO.builder()
+                .currentPassword("weak")
+                .newPassword("NewSecure123!")
+                .build();
+
+        ValidationResult result = validator.validate(dto);
+
+        assertFalse(result.hasErrors(), "A legacy weak current password must still allow a change");
+    }
+
+    @Test
+    @DisplayName("Should fail when newPassword exceeds 72 characters (BCrypt limit)")
+    void shouldFailWhenNewPasswordTooLong() {
+        ChangePasswordDTO dto = ChangePasswordDTO.builder()
+                .currentPassword("OldPass123!")
+                .newPassword("Aa1!" + "a".repeat(69))
+                .build();
+
+        ValidationResult result = validator.validate(dto);
+
+        assertTrue(result.hasErrors());
+        assertTrue(result.getFormattedErrors().contains("newPassword: Password must be at most 72 characters"),
+                result.getFormattedErrors().toString());
     }
 }

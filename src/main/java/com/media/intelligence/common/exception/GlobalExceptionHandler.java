@@ -41,10 +41,9 @@ public class GlobalExceptionHandler {
 
         log.warn("Business exception: {} - {}", errorCode.getCode(), errorCode.getMessage(), ex);
 
-        ErrorResponse response = ErrorResponse.error(
-                errorCode.getCode(),
-                errorCode.getMessage()
-        );
+        ErrorResponse response = ex.getErrors().isEmpty()
+                ? ErrorResponse.error(errorCode.getCode(), errorCode.getMessage())
+                : ErrorResponse.error(errorCode.getCode(), errorCode.getMessage(), ex.getErrors());
 
         return new ResponseEntity<>(response, ex.getHttpStatus());
     }

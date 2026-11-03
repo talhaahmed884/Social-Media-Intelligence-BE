@@ -3,21 +3,26 @@ package com.media.intelligence.user_credential.strategy;
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
 import com.media.intelligence.user_credential.exception.UserCredentialException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * SHA-512 password hashing strategy with salt.
+ * Legacy SHA-512 password hashing strategy with salt.
  * <p>
- * Security Note: SHA-512 is fast, which makes it vulnerable to brute-force attacks.
- * For production, consider using BCrypt or Argon2 which are designed to be slow.
+ * Format: {@code Base64(16-byte salt || SHA-512(salt + password))}.
+ * <p>
+ * Security Note: SHA-512 is fast, which makes it vulnerable to brute-force attacks. New hashes use
+ * {@link BCryptHashingStrategy}; this class is kept (not a Spring bean) only so
+ * {@link DelegatingPasswordHashingStrategy} can verify hashes created before the switch and upgrade them.
+ * <p>
+ * Passwords are encoded as UTF-8, which equals the platform default on Java 18+ (JEP 400), so hashes
+ * created with the previous {@code getBytes()} call still verify.
  */
 @Slf4j
-@Component
 public class SHA512HashingStrategy implements PasswordHashingStrategy {
     private static final String ALGORITHM = "SHA-512";
     private static final int SALT_LENGTH = 16;
@@ -37,7 +42,7 @@ public class SHA512HashingStrategy implements PasswordHashingStrategy {
             // Hash password with salt
             MessageDigest md = MessageDigest.getInstance(ALGORITHM);
             md.update(salt);
-            byte[] hashedPassword = md.digest(password.getBytes());
+            byte[] hashedPassword = md.digest(password.getBytes(StandardCharsets.UTF_8));
 
             // Combine salt and hash
             byte[] combined = new byte[salt.length + hashedPassword.length];
@@ -65,6 +70,9 @@ public class SHA512HashingStrategy implements PasswordHashingStrategy {
             }
 
             byte[] combined = Base64.getDecoder().decode(storedHash);
+            if (combined.length <= SALT_LENGTH) {
+                throw new UserCredentialException(UserCredentialErrorCode.INVALID_PASSWORD_HASH);
+            }
 
             // Extract salt
             byte[] salt = new byte[SALT_LENGTH];
@@ -77,7 +85,7 @@ public class SHA512HashingStrategy implements PasswordHashingStrategy {
             // Hash the provided password with the extracted salt
             MessageDigest md = MessageDigest.getInstance(ALGORITHM);
             md.update(salt);
-            byte[] hashedPassword = md.digest(password.getBytes());
+            byte[] hashedPassword = md.digest(password.getBytes(StandardCharsets.UTF_8));
 
             // Compare using constant-time comparison
             boolean isValid = MessageDigest.isEqual(hashedPassword, storedHashBytes);

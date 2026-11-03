@@ -3,16 +3,16 @@ package com.media.intelligence.user.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.media.intelligence.common.validation.core.ValidationError;
 import com.media.intelligence.common.validation.core.ValidationResult;
-import com.media.intelligence.user.dto.ChangePasswordDTO;
+import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user.dto.FindUserByEmailDTO;
 import com.media.intelligence.user.dto.RegisterUserDTO;
 import com.media.intelligence.user.dto.UpdateUserProfileDTO;
 import com.media.intelligence.user.entity.User;
 import com.media.intelligence.user.exception.UserErrorCode;
 import com.media.intelligence.user.exception.UserException;
-import com.media.intelligence.user.sanitization.ChangePasswordDTOSanitizer;
+import com.media.intelligence.user_credential.sanitization.ChangePasswordDTOSanitizer;
 import com.media.intelligence.user.service.UserService;
-import com.media.intelligence.user.validation.ChangePasswordDTOValidator;
+import com.media.intelligence.user_credential.validation.ChangePasswordDTOValidator;
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
 import com.media.intelligence.user_credential.exception.UserCredentialException;
 import com.media.intelligence.user_credential.service.UserCredentialService;
@@ -389,7 +389,7 @@ public class UserControllerTest {
 
         when(changePasswordSanitizer.sanitize(any())).thenReturn(dto);
         when(changePasswordValidator.validate(any())).thenReturn(validationResult);
-        doThrow(new UserException(UserErrorCode.INVALID_INPUT)).when(userCredentialService)
+        doThrow(new UserCredentialException(UserCredentialErrorCode.INVALID_INPUT)).when(userCredentialService)
                 .changePassword(testUserId, dto);
 
         // Act & Assert

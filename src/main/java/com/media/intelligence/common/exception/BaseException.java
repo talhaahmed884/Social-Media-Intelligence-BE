@@ -3,6 +3,8 @@ package com.media.intelligence.common.exception;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
+
 /**
  * Abstract base exception that holds an ErrorCode.
  * All domain-specific exceptions should extend this class.
@@ -25,6 +27,12 @@ public abstract class BaseException extends RuntimeException {
     private final HttpStatus httpStatus;
 
     /**
+     * Client-safe detail messages returned in ErrorResponse.errors (e.g. "email: Email must be valid").
+     * Empty unless set via {@link #BaseException(ErrorCode, List)}. Never put rejected values here.
+     */
+    private List<String> errors = List.of();
+
+    /**
      * Constructor with ErrorCode.
      * HTTP status is automatically derived from errorCode.getHttpStatus()
      *
@@ -34,6 +42,17 @@ public abstract class BaseException extends RuntimeException {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
         this.httpStatus = errorCode.getHttpStatus();
+    }
+
+    /**
+     * Constructor with ErrorCode and client-facing detail messages (typically field validation errors).
+     *
+     * @param errorCode the error code defining the error type
+     * @param errors    detail messages for ErrorResponse.errors
+     */
+    protected BaseException(ErrorCode errorCode, List<String> errors) {
+        this(errorCode);
+        this.errors = errors != null ? List.copyOf(errors) : List.of();
     }
 
     /**

@@ -21,4 +21,15 @@ public interface PasswordHashingStrategy {
      * @return true if password matches, false otherwise
      */
     boolean verify(String password, String storedHash);
+
+    /**
+     * Whether a stored hash should be replaced with a fresh {@link #hash(String)} after a successful
+     * verification (e.g. legacy algorithm or outdated cost factor).
+     *
+     * @param storedHash the stored hash
+     * @return true if the hash should be upgraded
+     */
+    default boolean needsRehash(String storedHash) {
+        return false;
+    }
 }

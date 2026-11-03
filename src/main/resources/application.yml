@@ -41,6 +41,13 @@ logging:
       max-history: 30
 
 # ============================================
+# User credentials
+# ============================================
+user-credential:
+  # BCrypt cost factor (log2 rounds). Raising it upgrades existing hashes on next successful verification.
+  bcrypt-strength: 12
+
+# ============================================
 # Social connectors (platform API access)
 # ============================================
 social-connector:
