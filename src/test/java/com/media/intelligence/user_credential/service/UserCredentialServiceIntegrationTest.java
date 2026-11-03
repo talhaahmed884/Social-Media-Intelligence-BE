@@ -1,6 +1,5 @@
 package com.media.intelligence.user_credential.service;
 
-import com.media.intelligence.user_credential.strategy.SHA512HashingStrategy;
 import com.media.intelligence.user_credential.strategy.BCryptHashingStrategy;
 import com.media.intelligence.user_credential.dto.ChangePasswordDTO;
 import com.media.intelligence.user.entity.User;
@@ -481,25 +480,20 @@ public class UserCredentialServiceIntegrationTest {
         assertNotEquals(cred1.getPasswordHash(), cred2.getPasswordHash());
     }
 
-    // ==================== Hash upgrade Tests ====================
+    // ==================== Hash format Tests ====================
 
     @Test
-    @DisplayName("verifyPassword: Should accept a legacy SHA-512 hash and upgrade it to BCrypt")
-    void verifyPassword_ShouldUpgradeLegacyHash() {
-        // Arrange: simulate a credential created before the switch to BCrypt
-        UserCredential credential = credentialService.createCredential(testUser, "LegacyPass123!");
-        credential.setPasswordHash(new SHA512HashingStrategy().hash("LegacyPass123!"));
+    @DisplayName("verifyPassword: Should reject a stored hash that is not BCrypt")
+    void verifyPassword_ShouldRejectNonBCryptHash() {
+        // Arrange: e.g. a hash from an older algorithm that is no longer supported
+        UserCredential credential = credentialService.createCredential(testUser, "SecurePass123!");
+        credential.setPasswordHash("bm90LWEtYmNyeXB0LWhhc2g=");
         credentialRepository.save(credential);
 
-        // Act
-        boolean valid = credentialService.verifyPassword(testUser.getId(), "LegacyPass123!");
-
-        // Assert
-        assertTrue(valid);
-        String storedHash = credentialRepository.findByUser_Id(testUser.getId()).orElseThrow().getPasswordHash();
-        assertTrue(BCryptHashingStrategy.isBCryptHash(storedHash), "Legacy hash should be upgraded to BCrypt");
-        assertTrue(credentialService.verifyPassword(testUser.getId(), "LegacyPass123!"));
-        assertFalse(credentialService.verifyPassword(testUser.getId(), "WrongPass123!"));
+        // Act & Assert
+        UserCredentialException exception = assertThrows(UserCredentialException.class, () ->
+                credentialService.verifyPassword(testUser.getId(), "SecurePass123!"));
+        assertEquals(UserCredentialErrorCode.INVALID_PASSWORD_HASH, exception.getErrorCode());
     }
 
     @Test

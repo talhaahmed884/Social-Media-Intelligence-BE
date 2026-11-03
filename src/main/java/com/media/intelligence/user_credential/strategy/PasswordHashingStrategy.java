@@ -2,7 +2,8 @@ package com.media.intelligence.user_credential.strategy;
 
 /**
  * Strategy interface for password hashing algorithms.
- * Allows different hashing strategies (SHA-512, BCrypt, Argon2, etc.) to be used interchangeably.
+ * The current implementation is {@link BCryptHashingStrategy}; another algorithm (e.g. Argon2) can be
+ * added behind this interface.
  */
 public interface PasswordHashingStrategy {
     /**
@@ -24,7 +25,7 @@ public interface PasswordHashingStrategy {
 
     /**
      * Whether a stored hash should be replaced with a fresh {@link #hash(String)} after a successful
-     * verification (e.g. legacy algorithm or outdated cost factor).
+     * verification (e.g. an outdated cost factor).
      *
      * @param storedHash the stored hash
      * @return true if the hash should be upgraded

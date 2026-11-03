@@ -11,8 +11,7 @@ entity/        UserCredential: table `user_credentials`, shared PK with users (@
 repository/    UserCredentialRepository: findByUser_Id, existsByUser_Id, deleteByUser_Id (underscore = nested property)
 service/       UserCredentialService: createCredential, verifyPassword (+ hash upgrade), updatePassword, getCredentialByUserId, changePassword
 strategy/      PasswordHashingStrategy (interface, with default needsRehash)
-               DelegatingPasswordHashingStrategy: the only bean. New hashes are BCrypt; verify picks the algorithm by hash format
-               BCryptHashingStrategy (spring-security-crypto), SHA512HashingStrategy (legacy, verify/upgrade only; not a bean)
+               BCryptHashingStrategy: the only implementation and bean (spring-security-crypto)
 dto/ validation/ sanitization/   ChangePasswordDTO + its validator/sanitizer (moved here from user/)
 exception/     UserCredentialErrorCode (CRED_001..CRED_013; next free is CRED_014), UserCredentialException
 ```
@@ -30,13 +29,17 @@ On the JPA side, `User.credential` is `mappedBy = "user"` with `CascadeType.ALL`
 
 - **BCrypt** with cost `user-credential.bcrypt-strength` (default 12; the test profile uses 4 for speed). Hashes look
   like `$2a$12$...`.
-- **Legacy SHA-512** hashes (`Base64(16-byte salt || SHA-512)`) from before the switch still verify. After a
-  **successful** `verifyPassword`, `needsRehash` is true for legacy hashes and for BCrypt hashes with a lower cost,
-  so the password is re-hashed with BCrypt and saved. A failure to upgrade is logged and doesn't fail the
-  verification.
-  - Today only change-password calls `verifyPassword`. Once a login endpoint exists, upgrades will happen there
-    too.
-  - Accounts that never verify keep their legacy hash, so there is no bulk migration.
+- **Only BCrypt is supported.** A stored value that isn't a BCrypt hash is rejected with
+  `CRED_010 INVALID_PASSWORD_HASH`.
+  - The old SHA-512 strategy was removed. Any credential still holding a SHA-512 hash can't be verified, and the
+    user has to set a new password. There is no reset flow yet.
+- **Cost upgrades**: after a **successful** `verifyPassword`, `needsRehash` is true when the stored BCrypt cost is
+  lower than `bcrypt-strength`. The password is then re-hashed at the current cost and saved. A failure to upgrade
+  is logged and doesn't fail the verification. Today only change-password calls `verifyPassword`; once a login
+  endpoint exists, upgrades will happen there too.
+- **Adding an algorithm** (e.g. Argon2): implement `PasswordHashingStrategy`, then choose by hash format or an
+  explicit `{id}` prefix, the way Spring's `DelegatingPasswordEncoder` does. Keep the old implementation able to
+  verify until existing hashes have been upgraded.
 - **72-byte limit**: BCrypt only uses the first 72 bytes of a password.
   - Validators cap new passwords at 72 characters.
   - `BCryptHashingStrategy` also rejects passwords over 72 bytes with `CRED_012 PASSWORD_TOO_LONG` (this catches

@@ -2,16 +2,25 @@ package com.media.intelligence.user_credential.strategy;
 
 import com.media.intelligence.user_credential.exception.UserCredentialErrorCode;
 import com.media.intelligence.user_credential.exception.UserCredentialException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 
 /**
- * BCrypt password hashing strategy (salted, adaptive cost). Hashes look like {@code $2a$12$...}.
+ * BCrypt password hashing strategy (salted, adaptive cost) and the application's only
+ * {@link PasswordHashingStrategy} bean. Hashes look like {@code $2a$12$...}.
+ * <p>
+ * The cost comes from {@code user-credential.bcrypt-strength} (default 12). Raising it upgrades existing
+ * hashes on their next successful verification (see {@link #needsRehash}).
+ * <p>
+ * Stored values that are not BCrypt hashes are rejected with INVALID_PASSWORD_HASH.
  * <p>
  * BCrypt only uses the first 72 bytes of a password; longer passwords are rejected when hashing
  * (validators cap passwords at 72 characters, this guards multi-byte input).
  */
+@Component
 public class BCryptHashingStrategy implements PasswordHashingStrategy {
     static final int MAX_PASSWORD_BYTES = 72;
 
@@ -20,7 +29,7 @@ public class BCryptHashingStrategy implements PasswordHashingStrategy {
     /**
      * @param strength log2 cost factor (4-31); 12 is a reasonable production default
      */
-    public BCryptHashingStrategy(int strength) {
+    public BCryptHashingStrategy(@Value("${user-credential.bcrypt-strength:12}") int strength) {
         this.encoder = new BCryptPasswordEncoder(strength);
     }
 
@@ -62,7 +71,7 @@ public class BCryptHashingStrategy implements PasswordHashingStrategy {
      */
     @Override
     public boolean needsRehash(String storedHash) {
-        return encoder.upgradeEncoding(storedHash);
+        return isBCryptHash(storedHash) && encoder.upgradeEncoding(storedHash);
     }
 
     private static boolean tooLong(String password) {

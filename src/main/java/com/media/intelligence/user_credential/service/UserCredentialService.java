@@ -24,8 +24,7 @@ import java.util.UUID;
  * reported as PASSWORD_HASH_FAILED / PASSWORD_VERIFICATION_FAILED; other unexpected failures (e.g. database
  * outages) propagate to the GlobalExceptionHandler as 500 instead of being relabelled as "not found".
  * <p>
- * After a successful verification, hashes in a legacy format (SHA-512) or with an outdated BCrypt cost
- * are transparently re-hashed.
+ * After a successful verification, hashes with an outdated BCrypt cost are transparently re-hashed.
  */
 @Slf4j
 @Service
@@ -212,7 +211,7 @@ public class UserCredentialService {
     }
 
     /**
-     * Re-hash a just-verified password if its stored hash is legacy or outdated. Failures are logged and
+     * Re-hash a just-verified password if its stored hash is outdated. Failures are logged and
      * ignored: the user already proved the password, and the next verification will try again.
      */
     private void upgradeHashIfNeeded(UserCredential credential, String password) {

@@ -22,7 +22,7 @@ or an existing token, stores tokens encrypted, refreshes them, and serves live p
 |----------------------------------------------------------------|---------------------------------------------------------------------|
 | `src/main/java/com/media/intelligence/common/CLAUDE.md`         | API envelopes, the error-code/exception model, the custom validation and sanitization framework |
 | `src/main/java/com/media/intelligence/user/CLAUDE.md`           | User domain, endpoints, rules; the template for new domains         |
-| `src/main/java/com/media/intelligence/user_credential/CLAUDE.md`| Password hashing (BCrypt, legacy SHA-512 upgraded on verify), shared-PK entity, change-password flow |
+| `src/main/java/com/media/intelligence/user_credential/CLAUDE.md`| Password hashing (BCrypt only, cost upgrades on verify), shared-PK entity, change-password flow |
 | `src/main/java/com/media/intelligence/social_connector/CLAUDE.md`| Stateless connector design, per-platform subpackages, OAuth capability, error/retry/rate-limit rules, config, how to add a platform, Instagram API notes |
 | `src/main/java/com/media/intelligence/social_account/CLAUDE.md` | Linked accounts: endpoints, OAuth flow, token encryption, re-auth status, refresh job |
 | `src/test/java/com/media/intelligence/CLAUDE.md`                | Test types, naming, suites, coverage gaps                           |
@@ -100,7 +100,7 @@ both are required for compilation.
   refresh, REAUTH_REQUIRED status, live fetch endpoints).
 - Next: run against the real Instagram API with a Meta app, persist fetched posts and comments for analytics, add
   pagination, add Postman entries for the social endpoints.
-- Done: BCrypt password hashing (legacy SHA-512 hashes are upgraded on the next successful verification),
+- Done: BCrypt password hashing (the only supported algorithm; SHA-512 was removed),
   field-level validation errors in `ErrorResponse.errors`, and change-password classes moved to `user_credential`.
 - Not started (roadmap in README): JWT auth and login (no endpoint is protected today), more platforms, scheduled
   data collection, analytics.
