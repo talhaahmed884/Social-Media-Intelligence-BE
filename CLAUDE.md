@@ -27,8 +27,9 @@ or an existing token, stores tokens encrypted, refreshes them, and serves live p
 | `src/main/java/com/media/intelligence/social_account/CLAUDE.md` | Linked accounts: endpoints, OAuth flow, token encryption, re-auth status, refresh job |
 | `src/test/java/com/media/intelligence/CLAUDE.md`                | Test types, naming, suites, coverage gaps                           |
 
-Human-facing docs: `README.md`, `POSTMAN_GUIDE.md` (plus the two Postman JSON files at the repo root), and
-`SOCIAL_CONNECTOR_GUIDE.md`. The README has some stale claims (`application.properties`, Boot 4/Java 25). When
+Human-facing docs: `README.md`, `postman/` (collection, environment, and `postman/README.md` guide), and
+`SOCIAL_CONNECTOR_GUIDE.md`. When you add or change an endpoint, update the Postman collection (in the matching
+folder) and its guide too. The README has some stale claims (`application.properties`, Boot 4/Java 25). When
 they disagree with the code, trust the code.
 
 ### Keeping these notes current (do this as part of every change)
@@ -94,12 +95,12 @@ both are required for compilation.
 ## Current status (update when this changes)
 
 - Done: user CRUD and password change with sanitization, validation and tests; common response, exception and
-  validation framework; Postman collection.
+  validation framework; Postman collection in `postman/`, with User Management and Social Accounts folders.
 - Done (not yet tried against the live Instagram API): the `social_connector` layer (Instagram via RestClient,
   OAuth, config properties) and the `social_account` domain (link via OAuth or token, encrypted tokens, scheduled
   refresh, REAUTH_REQUIRED status, live fetch endpoints).
 - Next: run against the real Instagram API with a Meta app, persist fetched posts and comments for analytics, add
-  pagination, add Postman entries for the social endpoints.
+  pagination.
 - Done: BCrypt password hashing (the only supported algorithm; SHA-512 was removed),
   field-level validation errors in `ErrorResponse.errors`, and change-password classes moved to `user_credential`.
 - Not started (roadmap in README): JWT auth and login (no endpoint is protected today), more platforms, scheduled

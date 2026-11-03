@@ -310,12 +310,13 @@ Content-Type: application/json
 
 ### Postman Collection
 
-Import the included Postman collection for easy API testing:
+Import the included Postman collection for easy API testing. It covers User Management and Social Accounts
+(Instagram):
 
-- Collection: `Social_Media_Intelligence_API.postman_collection.json`
-- Environment: `Social_Media_Intelligence.postman_environment.json`
+- Collection: `postman/Social_Media_Intelligence_API.postman_collection.json`
+- Environment: `postman/Social_Media_Intelligence.postman_environment.json`
 
-See [POSTMAN_GUIDE.md](POSTMAN_GUIDE.md) for detailed instructions.
+See [postman/README.md](postman/README.md) for detailed instructions.
 
 ---
 
@@ -450,9 +451,7 @@ social-media-intelligence/
 ├── logs/                           # Application logs
 ├── pom.xml                         # Maven configuration
 ├── README.md                       # This file
-├── POSTMAN_GUIDE.md               # Postman usage guide
-├── Social_Media_Intelligence_API.postman_collection.json
-└── Social_Media_Intelligence.postman_environment.json
+└── postman/                        # Postman collection, environment, and guide (README.md)
 ```
 
 ---

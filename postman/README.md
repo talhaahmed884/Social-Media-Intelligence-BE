@@ -2,42 +2,64 @@
 
 ## Overview
 
-Complete Postman collection for testing the Social Media Intelligence User Management API.
+Postman collection for testing the Social Media Intelligence API: user management and linked social accounts
+(Instagram).
 
-## Files Created
+## Files
 
-1. **Social_Media_Intelligence_API.postman_collection.json** - API collection with all endpoints
-2. **Social_Media_Intelligence.postman_environment.json** - Environment variables for local development
+| File                                                   | Purpose                                         |
+|--------------------------------------------------------|-------------------------------------------------|
+| `Social_Media_Intelligence_API.postman_collection.json` | All requests, grouped into folders              |
+| `Social_Media_Intelligence.postman_environment.json`    | Variables for local development                 |
+
+## Collection Structure
+
+```
+Social Media Intelligence API
+├── User Management
+│   ├── Register User                 (saves userId)
+│   ├── Get User by ID
+│   ├── Get User by Email
+│   ├── Get All Users
+│   ├── Update User Profile
+│   ├── Change Password
+│   └── Delete User
+└── Social Accounts
+    ├── Linking
+    │   ├── Link Account with Access Token   (saves socialAccountId)
+    │   ├── Start Authorization (OAuth)      (saves authorizationUrl)
+    │   ├── OAuth Callback (manual replay)   (saves socialAccountId)
+    │   ├── List Social Accounts             (saves socialAccountId if unset)
+    │   └── Unlink Social Account            (clears socialAccountId)
+    └── Platform Data
+        ├── Get Posts                        (saves postId)
+        ├── Get Post
+        └── Get Post Comments
+```
 
 ---
 
 ## Import Instructions
 
-### 1. Import Collection
-
-1. Open Postman
-2. Click **Import** button (top left)
-3. Select **Social_Media_Intelligence_API.postman_collection.json**
-4. Click **Import**
-
-### 2. Import Environment
-
-1. Click **Import** button again
-2. Select **Social_Media_Intelligence.postman_environment.json**
-3. Click **Import**
-4. Select "Social Media Intelligence - Local" from environment dropdown (top right)
+1. Open Postman and click **Import** (top left)
+2. Select both files in this folder (`postman/`) and click **Import**
+3. Select **Social Media Intelligence - Local** from the environment dropdown (top right)
 
 ---
 
-## Available Endpoints
+## User Management
 
-### 1. Register User
+| Request             | Method & Path                                  | Notes                                       |
+|---------------------|------------------------------------------------|---------------------------------------------|
+| Register User       | `POST /api/v1/users/register`                  | Saves `userId`                              |
+| Get User by ID      | `GET /api/v1/users/{{userId}}`                 |                                             |
+| Get User by Email   | `GET /api/v1/users/by-email?email=...`         | Email is normalized before lookup           |
+| Get All Users       | `GET /api/v1/users`                            |                                             |
+| Update User Profile | `PUT /api/v1/users/{{userId}}`                 | Email and full name are both required       |
+| Change Password     | `PUT /api/v1/users/{{userId}}/change-password` | 401 `CRED_011` if current password is wrong |
+| Delete User         | `DELETE /api/v1/users/{{userId}}`              | Also deletes credentials and linked accounts |
 
-**POST** `/api/v1/users/register`
-
-Creates a new user account.
-
-**Request Body:**
+**Register body:**
 
 ```json
 {
@@ -47,293 +69,178 @@ Creates a new user account.
 }
 ```
 
-**Password Requirements:**
-
-- Minimum 8 characters
-- At least one uppercase letter
-- At least one lowercase letter
-- At least one digit
-- At least one special character
-
-**Auto-saves userId:** The response userId is automatically saved to environment variable for use in other requests.
+**Password requirements** (register and new password): 8-72 characters, with at least one uppercase letter, one
+lowercase letter, one digit and one special character. The *current* password in Change Password is only checked
+against the stored password, not against these rules.
 
 ---
 
-### 2. Get User by ID
+## Social Accounts (Instagram)
 
-**GET** `/api/v1/users/{{userId}}`
+### Server prerequisites
 
-Retrieves user details by UUID.
+| Variable                      | Needed for                | Notes                                         |
+|-------------------------------|---------------------------|-----------------------------------------------|
+| `SOCIAL_TOKEN_ENCRYPTION_KEY` | Any linking               | `openssl rand -base64 32`; without it linking returns 500 `SACC_005` |
+| `INSTAGRAM_CLIENT_ID`         | OAuth flow                | Instagram App ID from the Meta App Dashboard  |
+| `INSTAGRAM_CLIENT_SECRET`     | OAuth flow                | Instagram App secret                          |
+| `INSTAGRAM_REDIRECT_URI`      | OAuth flow                | Must exactly match a redirect URI registered in the dashboard; points at `/api/v1/social-accounts/oauth/instagram/callback` |
 
-**Uses:** Environment variable `{{userId}}`
+Also required:
+- The `social_accounts` table from `src/main/resources/schema.sql` exists in Postgres.
+- The Instagram account is a **professional** (Business or Creator) account. While the Meta app is in development
+  mode, the account must be added as an Instagram tester.
 
----
+### Quick test with an access token (no OAuth)
 
-### 3. Get User by Email
+1. **User Management > Register User** saves `userId`.
+2. Generate a token in the Meta App Dashboard (*Instagram > API setup with Instagram login > Generate token*) and
+   paste it into the `instagramAccessToken` environment variable.
+3. **Social Accounts > Linking > Link Account with Access Token** saves `socialAccountId`.
+4. **Platform Data > Get Posts** saves `postId`, then run **Get Post** and **Get Post Comments**.
 
-**GET** `/api/v1/users/by-email?email=john.doe@example.com`
+### Full OAuth flow
 
-Finds a user by email address.
+1. **Register User**, then **Start Authorization (OAuth)**. The `authorizationUrl` is printed in the Postman console
+   and saved to the environment.
+2. Open the URL in a browser and approve access.
+3. Instagram redirects the browser to the backend callback, which links the account and shows the JSON result.
+4. **List Social Accounts** saves `socialAccountId`, then use **Platform Data** as above.
 
-**Query Parameters:**
+The authorization link expires after 10 minutes. Use **OAuth Callback (manual replay)** only if you need to replay
+a redirect by hand: copy `code` and `state` from the redirect URL into `oauthCode` and `oauthState`. Codes are
+single-use.
 
-- `email` - Email address to search
+### Account status
 
----
+`List Social Accounts` returns `status`:
+- **`ACTIVE`**: the stored token works.
+- **`REAUTH_REQUIRED`**: Instagram rejected the token. Data requests return 409 `SACC_007` until you link the
+  account again, with either flow.
 
-### 4. Get All Users
-
-**GET** `/api/v1/users`
-
-Retrieves all registered users.
-
-**No parameters required**
-
----
-
-### 5. Update User Profile
-
-**PUT** `/api/v1/users/{{userId}}`
-
-Updates user email and/or full name.
-
-**Request Body:**
-
-```json
-{
-    "email": "john.updated@example.com",
-    "fullName": "John Updated Doe"
-}
-```
-
-**Note:** Cannot change password via this endpoint. Use Change Password instead.
-
----
-
-### 6. Change Password
-
-**PUT** `/api/v1/users/{{userId}}/change-password`
-
-Changes user password (requires current password).
-
-**Request Body:**
-
-```json
-{
-    "currentPassword": "SecurePass123!",
-    "newPassword": "NewSecurePass456!"
-}
-```
-
-**Validation:**
-
-- Current password must be correct
-- New password must meet strength requirements
-
----
-
-### 7. Delete User
-
-**DELETE** `/api/v1/users/{{userId}}`
-
-Permanently deletes a user account.
-
-**Cascade behavior:** Automatically deletes associated credentials.
-
-⚠️ **Warning:** This operation cannot be undone.
-
----
-
-## Typical Workflow
-
-### Testing Complete User Lifecycle
-
-1. **Register User**
-    - Send "Register User" request
-    - userId is auto-saved to environment
-
-2. **Verify Registration**
-    - Send "Get User by ID" request
-    - Verify user data is correct
-
-3. **Update Profile**
-    - Send "Update User Profile" request
-    - Verify changes with "Get User by ID"
-
-4. **Change Password**
-    - Send "Change Password" request
-    - (Optional) Try logging in with new password
-
-5. **Get All Users**
-    - Send "Get All Users" request
-    - Verify your user appears in list
-
-6. **Delete User**
-    - Send "Delete User" request
-    - Verify with "Get User by ID" (should return 404)
+Tokens are refreshed automatically by a daily job and are never returned by the API.
 
 ---
 
 ## Environment Variables
 
-| Variable  | Description                                   | Auto-populated?   |
-|-----------|-----------------------------------------------|-------------------|
-| `baseUrl` | API base URL (default: http://localhost:8080) | No                |
-| `userId`  | UUID of created/tested user                   | Yes (on Register) |
+| Variable               | Description                                   | Auto-populated?                      |
+|------------------------|-----------------------------------------------|--------------------------------------|
+| `baseUrl`              | API base URL (default: http://localhost:8080) | No                                   |
+| `userId`               | UUID of the test user                         | Yes (Register User)                  |
+| `platform`             | Platform path value (default: `instagram`)    | No                                   |
+| `instagramAccessToken` | Token for the access-token link flow (secret) | No: paste from the Meta dashboard    |
+| `socialAccountId`      | ID of the linked account                      | Yes (link, callback, list)           |
+| `postId`               | ID of a post for Get Post / Comments          | Yes (Get Posts)                      |
+| `authorizationUrl`     | URL to open for OAuth                         | Yes (Start Authorization)            |
+| `oauthCode`            | Code for a manual callback replay (secret)    | No                                   |
+| `oauthState`           | State for a manual callback replay            | No                                   |
 
-### Changing Base URL
-
-To test against a different server:
-
-1. Click environment dropdown (top right)
-2. Click eye icon next to "Social Media Intelligence - Local"
-3. Update `baseUrl` value
-4. Click **Save**
+To test against another server, change `baseUrl`: open the environment dropdown, click the eye icon next to the
+environment, edit the value and save.
 
 ---
 
 ## Response Format
 
-### Success Response
+### Success
 
 ```json
 {
     "success": true,
     "message": "Operation successful",
-    "data": {
-        "id": "uuid-here",
-        "email": "user@example.com",
-        "fullName": "User Name",
-        "createdAt": "2025-12-31T12:00:00",
-        "updatedAt": "2025-12-31T12:00:00"
-    },
+    "data": { ... },
     "timestamp": "2025-12-31T12:00:00"
 }
 ```
 
-### Error Response
+### Error
 
 ```json
 {
     "success": false,
-    "message": "Error description",
-    "data": null,
+    "errorCode": "USR_012",
+    "message": "Invalid input data",
+    "errors": ["email: Email must be valid"],
     "timestamp": "2025-12-31T12:00:00"
 }
 ```
+
+`errors` is only present for validation failures. Error code prefixes:
+- `USR_` user
+- `CRED_` credentials
+- `SACC_` social accounts
+- `SCnxxx` platform connector
+- Common codes such as `INVALID_INPUT`
 
 ---
 
 ## Common HTTP Status Codes
 
-| Status           | Meaning            | When You'll See It                 |
-|------------------|--------------------|------------------------------------|
-| 200 OK           | Success            | GET, PUT, DELETE successful        |
-| 201 Created      | Resource created   | POST /register successful          |
-| 400 Bad Request  | Validation error   | Invalid email, weak password, etc. |
-| 404 Not Found    | Resource not found | User doesn't exist                 |
-| 409 Conflict     | Duplicate resource | Email already exists               |
-| 500 Server Error | Server issue       | Database error, etc.               |
-
----
-
-## Testing Tips
-
-### 1. Use Test Scripts
-
-The "Register User" request includes a test script that auto-saves the userId. You can add similar scripts to other
-requests.
-
-### 2. Use Variables
-
-Instead of hardcoding UUIDs, use `{{userId}}` to reference the saved variable.
-
-### 3. Use Pre-request Scripts
-
-Add pre-request scripts to generate random test data:
-
-```javascript
-pm.environment.set("randomEmail", `test${Date.now()}@example.com`);
-```
-
-Then use `{{randomEmail}}` in your request body.
-
-### 4. Organize with Folders
-
-The collection is already organized into "User Management" folder. You can create more folders for different features.
+| Status               | When you'll see it                                                     |
+|----------------------|------------------------------------------------------------------------|
+| 200 OK               | Successful GET, PUT, DELETE, or OAuth callback                         |
+| 201 Created          | Register User, Link Account with Access Token                          |
+| 400 Bad Request      | Validation error, malformed ID or `limit`, invalid OAuth state, unknown platform |
+| 401 Unauthorized     | Wrong current password (`CRED_011`), Instagram rejected the token (`SC1001`/`SC1003`) |
+| 403 Forbidden        | Missing Instagram permission (`SC1004`)                                |
+| 404 Not Found        | User, social account or post not found                                 |
+| 409 Conflict         | Email already exists (`USR_003`), account needs re-linking (`SACC_007`) |
+| 429 Too Many Requests| Rate limit (`SC2001`)                                                  |
+| 502 / 503            | Instagram returned an unexpected or invalid response, or was unavailable |
+| 500                  | Server-side issue (e.g. missing configuration, database error)         |
 
 ---
 
 ## Troubleshooting
 
-### "Could not get response" Error
+### "Could not get response"
 
-- ✅ Check if Spring Boot app is running (`mvn spring-boot:run`)
-- ✅ Verify baseUrl is correct (http://localhost:8080)
-- ✅ Check if port 8080 is in use
+- Check that the app is running (`mvn spring-boot:run`)
+- Verify `baseUrl` and that port 8080 is free
 
-### "User not found" Error
+### "User not found" / "Social account not found"
 
-- ✅ Make sure you ran "Register User" first
-- ✅ Check if userId environment variable is set
-- ✅ Verify the user wasn't deleted
+- Run **Register User** (and a link request) first so `userId` / `socialAccountId` are set
+- Check the IDs in the environment belong to the same user
 
-### "Email already exists" Error
+### Email already exists
 
-- ✅ Use a different email address
-- ✅ Or delete the existing user first
-- ✅ Or use the random email generation tip above
+- Use another email, delete the existing user, or generate one in a pre-request script:
+  `pm.environment.set("randomEmail", \`test${Date.now()}@example.com\`);`
 
-### Validation Errors
+### Linking returns 401 `SC1001` / `SC1003`
 
-- ✅ Check password meets strength requirements
-- ✅ Verify email format is valid
-- ✅ Ensure full name is 2-255 characters
+- The token is invalid or expired; generate a new one in the Meta App Dashboard
+- The account must be a professional account added as a tester
+
+### Get Posts fails with `SC3001`
+
+- Instagram may reject a requested field (e.g. `caption` is documented as Facebook-Login only); check the server log
+  for the Graph error message
+
+### 500 `SACC_005` or `SC7002`
+
+- Set `SOCIAL_TOKEN_ENCRYPTION_KEY` (linking) or the `INSTAGRAM_*` variables (OAuth) and restart the app
 
 ---
 
-## Advanced Usage
-
-### Running Collection with Newman (CLI)
-
-Install Newman:
+## Running with Newman (CLI)
 
 ```bash
 npm install -g newman
+newman run postman/Social_Media_Intelligence_API.postman_collection.json \
+  -e postman/Social_Media_Intelligence.postman_environment.json \
+  --folder "User Management"
 ```
 
-Run collection:
-
-```bash
-newman run Social_Media_Intelligence_API.postman_collection.json \
-  -e Social_Media_Intelligence.postman_environment.json
-```
-
-### Exporting Test Results
-
-1. Click **Runner** in Postman
-2. Select collection
-3. Select environment
-4. Click **Run**
-5. Export results
-
----
-
-## Next Steps
-
-After testing the User Management API:
-
-1. Add authentication endpoints (login, logout)
-2. Add social media platform connectors
-3. Add data analysis endpoints
-4. Create automated test suites
+Run the **Social Accounts** folder only after setting `instagramAccessToken`, because it calls the real Instagram
+API.
 
 ---
 
 ## Support
 
-For issues or questions:
-
-- Check application logs: `logs/application.log`
-- Review Spring Boot console output
-- Verify database connections in `application.properties`
+- Application logs: `logs/application.log`
+- Configuration: `src/main/resources/application.yml`
+- Social integration details: `SOCIAL_CONNECTOR_GUIDE.md` at the repository root

@@ -70,4 +70,5 @@ exception/    SocialAccountErrorCode (SACC_001..SACC_007; next free is SACC_008)
 ## Next steps
 
 Authentication on these endpoints (JWT roadmap), a frontend redirect after the callback (it currently returns
-JSON), persisting fetched posts and comments for analytics, and Postman collection entries.
+JSON), and persisting fetched posts and comments for analytics. Postman requests for these endpoints live in
+`postman/` under *Social Accounts*.

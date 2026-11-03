@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Social Media Intelligence API",
-    "description": "Complete API collection for User Management endpoints",
+    "description": "API collection for User Management and Social Accounts (Instagram) endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -51,7 +51,7 @@
                 "register"
               ]
             },
-            "description": "Register a new user with email, password, and full name.\n\n**Password Requirements:**\n- Minimum 8 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character\n\n**Email Requirements:**\n- Valid email format (RFC 5322)\n- Maximum 255 characters\n\n**Full Name Requirements:**\n- 2-255 characters"
+            "description": "Register a new user with email, password, and full name.\n\n**Password Requirements:**\n- Minimum 8 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character\n- Maximum 72 characters\n\n**Email Requirements:**\n- Valid email format (RFC 5322)\n- Maximum 255 characters\n\n**Full Name Requirements:**\n- 2-255 characters"
           },
           "response": []
         },
@@ -181,7 +181,7 @@
                 "change-password"
               ]
             },
-            "description": "Change user password.\n\n**Requirements:**\n- Must provide correct current password\n- New password must meet strength requirements (8+ chars, uppercase, lowercase, digit, special char)\n\n**Errors:**\n- Returns 400 if current password is incorrect\n- Returns 400 if new password doesn't meet requirements"
+            "description": "Change user password.\n\n**Requirements:**\n- Must provide the correct current password (it is not checked against strength rules)\n- New password must meet strength requirements (8-72 chars, uppercase, lowercase, digit, special char)\n\n**Errors:**\n- 401 `CRED_011` if current password is incorrect\n- 400 `CRED_013` if the input is invalid (field details in `errors`)"
           },
           "response": []
         },
@@ -202,12 +202,355 @@
                 "{{userId}}"
               ]
             },
-            "description": "Delete a user account.\n\n**Cascade Behavior:**\n- Automatically deletes associated user credentials\n- Permanently removes user data\n\n**Note:** This operation cannot be undone."
+            "description": "Delete a user account.\n\n**Cascade Behavior:**\n- Automatically deletes associated user credentials and linked social accounts\n- Permanently removes user data\n\n**Note:** This operation cannot be undone."
           },
           "response": []
         }
       ],
-      "description": "Complete set of User Management API endpoints.\n\n**Base URL:** http://localhost:8080 (configurable via environment variable)\n\n**API Response Format:**\n```json\n{\n    \"success\": true,\n    \"message\": \"Operation successful\",\n    \"data\": { ... },\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```\n\n**Error Response Format:**\n```json\n{\n    \"success\": false,\n    \"message\": \"Error description\",\n    \"data\": null,\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```"
+      "description": "Complete set of User Management API endpoints.\n\n**Base URL:** http://localhost:8080 (configurable via environment variable)\n\n**API Response Format:**\n```json\n{\n    \"success\": true,\n    \"message\": \"Operation successful\",\n    \"data\": { ... },\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```\n\n**Error Response Format:**\n```json\n{\n    \"success\": false,\n    \"errorCode\": \"USR_012\",\n    \"message\": \"Invalid input data\",\n    \"errors\": [\"email: Email must be valid\"],\n    \"timestamp\": \"2025-12-31T12:00:00\"\n}\n```\n`errors` is only present for validation failures."
+    },
+    {
+      "name": "Social Accounts",
+      "description": "Link Instagram accounts to a user and read their data.\n\n**Before you start:**\n- Run **User Management > Register User** so `userId` is set\n- Server has `SOCIAL_TOKEN_ENCRYPTION_KEY` set (and the Instagram OAuth variables for the OAuth flow)\n- The Instagram account is a professional (Business/Creator) account; while the Meta app is in development mode it must be added as an Instagram tester\n\n`platform` is `instagram` (the only supported platform today).",
+      "item": [
+        {
+          "name": "Linking",
+          "description": "Link, list, and unlink social accounts for `{{userId}}`.\n\nUse **Link Account with Access Token** for quick testing, or **Start Authorization** for the real OAuth flow. Either way, `socialAccountId` is saved for the data requests.",
+          "item": [
+            {
+              "name": "Link Account with Access Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    const responseData = pm.response.json();",
+                      "    if (responseData.data && responseData.data.id) {",
+                      "        pm.environment.set(\"socialAccountId\", responseData.data.id);",
+                      "        console.log(\"Social account ID saved:\", responseData.data.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{platform}}/token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{platform}}",
+                    "token"
+                  ]
+                },
+                "description": "Link a social account using an existing access token (no OAuth redirect). Easiest way to test: generate a token in the Meta App Dashboard (Instagram > API setup with Instagram login > Generate token) and put it in the `instagramAccessToken` environment variable.\n\nThe backend verifies the token with Instagram, stores it **encrypted**, and returns the linked account. Linking the same Instagram account again updates the stored token.\n\n**Responses:**\n- 201 - account linked (`socialAccountId` saved)\n- 400 `SACC_002` - missing/blank token (field details in `errors`)\n- 401 `SC1001` / `SC1003` - Instagram rejected the token\n- 404 `USR_001` - user not found\n- 500 `SACC_005` - `SOCIAL_TOKEN_ENCRYPTION_KEY` not set on the server",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"accessToken\": \"{{instagramAccessToken}}\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Start Authorization (OAuth)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const responseData = pm.response.json();",
+                      "    if (responseData.data && responseData.data.authorizationUrl) {",
+                      "        pm.environment.set(\"authorizationUrl\", responseData.data.authorizationUrl);",
+                      "        console.log(\"Open this URL in a browser to authorize:\", responseData.data.authorizationUrl);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{platform}}/authorize",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{platform}}",
+                    "authorize"
+                  ]
+                },
+                "description": "Start the OAuth flow. Returns an `authorizationUrl` (also saved to the environment and printed in the Postman console).\n\n**Next steps:**\n1. Open `authorizationUrl` in a browser and approve access with an Instagram professional account\n2. Instagram redirects the browser to the backend callback, which links the account and shows the result as JSON\n3. Run **List Social Accounts** to save `socialAccountId`\n\nThe link is valid for 10 minutes. Requires `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET` and `INSTAGRAM_REDIRECT_URI` on the server (otherwise 500 `SC7002`)."
+              },
+              "response": []
+            },
+            {
+              "name": "OAuth Callback (manual replay)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    const responseData = pm.response.json();",
+                      "    if (responseData.data && responseData.data.id) {",
+                      "        pm.environment.set(\"socialAccountId\", responseData.data.id);",
+                      "        console.log(\"Social account ID saved:\", responseData.data.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/social-accounts/oauth/{{platform}}/callback?code={{oauthCode}}&state={{oauthState}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "social-accounts",
+                    "oauth",
+                    "{{platform}}",
+                    "callback"
+                  ],
+                  "query": [
+                    {
+                      "key": "code",
+                      "value": "{{oauthCode}}",
+                      "description": "Authorization code from the redirect URL"
+                    },
+                    {
+                      "key": "state",
+                      "value": "{{oauthState}}",
+                      "description": "State from the redirect URL"
+                    }
+                  ]
+                },
+                "description": "The redirect target Instagram calls after the user approves. **Normally the browser hits this automatically**; use this request only to replay a callback by hand, copying `code` and `state` from the redirect URL into `oauthCode` / `oauthState`.\n\nThe authorization code is single-use and valid for 1 hour; the state for 10 minutes.\n\n**Responses:**\n- 200 - account linked (`socialAccountId` saved)\n- 400 `SACC_003` - state invalid or expired (start again)\n- 400 `SACC_004` - the user denied access (`error=access_denied`)\n- 400 `SC1002` - code invalid or already used"
+              },
+              "response": []
+            },
+            {
+              "name": "List Social Accounts",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const accounts = pm.response.json().data || [];",
+                      "    if (accounts.length > 0 && !pm.environment.get(\"socialAccountId\")) {",
+                      "        pm.environment.set(\"socialAccountId\", accounts[0].id);",
+                      "        console.log(\"Social account ID saved:\", accounts[0].id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts"
+                  ]
+                },
+                "description": "List the accounts linked to `{{userId}}`. Tokens are never returned.\n\n`status` is `ACTIVE`, or `REAUTH_REQUIRED` when Instagram rejected the token (link the account again to fix it).\n\nIf `socialAccountId` is not set yet, the first account is saved to the environment."
+              },
+              "response": []
+            },
+            {
+              "name": "Unlink Social Account",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    pm.environment.unset(\"socialAccountId\");",
+                      "    console.log(\"Social account unlinked\");",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{socialAccountId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{socialAccountId}}"
+                  ]
+                },
+                "description": "Remove the linked account and its stored token. Clears `socialAccountId`.\n\n**Responses:**\n- 200 - unlinked\n- 404 `SACC_001` - account not found for this user"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Platform Data",
+          "description": "Live data from the platform for `{{socialAccountId}}`, fetched with the stored token. Nothing is persisted yet.\n\n**Common errors:**\n- 401 `SC1001` / `SC1003` - token rejected; the account becomes `REAUTH_REQUIRED`\n- 409 `SACC_007` - account needs re-linking\n- 400 `SC6002` - `limit` outside 1-50\n- 429 `SC2001` - rate limit (local guard or Instagram)\n- 503 `SC5002` / `SC3004` - Instagram unavailable or network error (already retried)",
+          "item": [
+            {
+              "name": "Get Posts",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const posts = pm.response.json().data || [];",
+                      "    if (posts.length > 0) {",
+                      "        pm.environment.set(\"postId\", posts[0].postId);",
+                      "        console.log(\"Post ID saved:\", posts[0].postId);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{socialAccountId}}/posts?limit=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{socialAccountId}}",
+                    "posts"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "25",
+                      "description": "Max items to return (1-50 for Instagram)"
+                    }
+                  ]
+                },
+                "description": "Fetch the linked account's own posts (Instagram media). The first post's ID is saved as `postId`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Post",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{socialAccountId}}/posts/{{postId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{socialAccountId}}",
+                    "posts",
+                    "{{postId}}"
+                  ]
+                },
+                "description": "Fetch a single post by ID (run **Get Posts** first to fill `postId`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Post Comments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}/social-accounts/{{socialAccountId}}/posts/{{postId}}/comments?limit=25",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}",
+                    "social-accounts",
+                    "{{socialAccountId}}",
+                    "posts",
+                    "{{postId}}",
+                    "comments"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "25",
+                      "description": "Max items to return (1-50 for Instagram)"
+                    }
+                  ]
+                },
+                "description": "Fetch comments on a post. Instagram returns at most 50 per request; reading commenter usernames needs the `instagram_business_manage_comments` permission."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
     }
   ],
   "event": [
@@ -238,6 +581,21 @@
     },
     {
       "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "platform",
+      "value": "instagram",
+      "type": "string"
+    },
+    {
+      "key": "socialAccountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "postId",
       "value": "",
       "type": "string"
     }
