@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 
@@ -33,10 +34,11 @@ public class SocialAuthResponse {
     /**
      * Access token (may be refreshed)
      */
+    @ToString.Exclude
     private String accessToken;
 
     /**
-     * Token expiration time
+     * Token expiration time (UTC), or null if the platform did not report it
      */
     private LocalDateTime tokenExpiresAt;
 

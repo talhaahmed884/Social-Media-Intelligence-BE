@@ -37,6 +37,36 @@ CREATE TABLE user_credentials
 );
 
 -- ============================================
+-- Table: social_accounts
+-- ============================================
+-- Social platform accounts linked to users. Access tokens are AES-GCM
+-- encrypted by the application. Token timestamps are UTC.
+CREATE TABLE social_accounts
+(
+    id                     UUID PRIMARY KEY,
+    user_id                UUID          NOT NULL,
+    platform               VARCHAR(32)   NOT NULL,
+    platform_account_id    VARCHAR(255)  NOT NULL,
+    username               VARCHAR(255),
+    access_token_encrypted VARCHAR(2048) NOT NULL,
+    token_expires_at       TIMESTAMP,
+    token_issued_at        TIMESTAMP     NOT NULL,
+    status                 VARCHAR(32)   NOT NULL,
+    created_at             TIMESTAMP     NOT NULL,
+    updated_at             TIMESTAMP     NOT NULL,
+
+    CONSTRAINT fk_social_accounts_user
+        FOREIGN KEY (user_id)
+            REFERENCES users (id)
+            ON DELETE CASCADE,
+
+    CONSTRAINT uk_social_accounts_user_platform_account
+        UNIQUE (user_id, platform, platform_account_id)
+);
+
+CREATE INDEX idx_social_accounts_user ON social_accounts (user_id);
+
+-- ============================================
 -- Trigger: Auto-update updated_at timestamp
 -- ============================================
 
@@ -64,5 +94,12 @@ EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_credentials_updated_at
     BEFORE UPDATE
     ON user_credentials
+    FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for social_accounts table
+CREATE TRIGGER update_social_accounts_updated_at
+    BEFORE UPDATE
+    ON social_accounts
     FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();

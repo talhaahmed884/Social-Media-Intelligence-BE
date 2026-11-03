@@ -1,6 +1,8 @@
 package com.media.intelligence;
 
 import com.media.intelligence.common.ValidationSanitizationTestSuite;
+import com.media.intelligence.social_account.SocialAccountTestSuite;
+import com.media.intelligence.social_connector.SocialConnectorTestSuite;
 import com.media.intelligence.user.UserIntegrationTestSuite;
 import com.media.intelligence.user_credential.UserCredentialIntegrationTestSuite;
 import org.junit.platform.suite.api.SelectClasses;
@@ -27,7 +29,9 @@ import org.junit.platform.suite.api.SuiteDisplayName;
 @SelectClasses({
         ValidationSanitizationTestSuite.class,
         UserIntegrationTestSuite.class,
-        UserCredentialIntegrationTestSuite.class
+        UserCredentialIntegrationTestSuite.class,
+        SocialConnectorTestSuite.class,
+        SocialAccountTestSuite.class
 })
 public class AllTestsSuite {
     // Master test suite runner - no additional code needed

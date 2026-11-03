@@ -11,6 +11,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -148,6 +149,24 @@ public class GlobalExceptionHandler {
         );
 
         return new ResponseEntity<>(errorResponse, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    /**
+     * Handle path/query values that cannot be converted (e.g. malformed UUID, non-numeric limit)
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            WebRequest request) {
+
+        log.warn("Invalid value for parameter '{}': {}", ex.getName(), ex.getValue());
+
+        ErrorResponse errorResponse = ErrorResponse.error(
+                CommonErrorCode.INVALID_INPUT.getCode(),
+                "Invalid value for parameter '" + ex.getName() + "'"
+        );
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     /**

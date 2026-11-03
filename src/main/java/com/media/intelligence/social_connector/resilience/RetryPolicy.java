@@ -3,6 +3,7 @@ package com.media.intelligence.social_connector.resilience;
 import com.media.intelligence.social_connector.exception.SocialConnectorErrorCode;
 import com.media.intelligence.social_connector.exception.SocialConnectorException;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Supplier;
@@ -13,17 +14,22 @@ import java.util.function.Supplier;
  * **Resilience Pattern**: Implements retry with exponential backoff
  * to handle transient network failures and temporary service unavailability.
  * <p>
+ * Whether an error is retried is decided by {@link SocialConnectorErrorCode#isRetryable()}
+ * (network errors and platform unavailability). Auth, rate-limit, not-found and other
+ * client errors fail immediately.
+ * <p>
  * For production use, consider:
  * - Resilience4j Retry
  * - Spring Retry (@Retryable)
  * - Circuit Breaker pattern for cascading failures
  */
 @Slf4j
+@Getter
 @Builder
 public class RetryPolicy {
 
     /**
-     * Maximum number of retry attempts
+     * Maximum number of attempts (including the first call)
      */
     @Builder.Default
     private final int maxAttempts = 3;
@@ -86,119 +92,51 @@ public class RetryPolicy {
     /**
      * Execute operation with retry logic.
      * <p>
-     * Retries on transient failures (network errors, timeouts, 5xx errors).
-     * Does NOT retry on client errors (4xx) or authentication failures.
+     * Retries only {@link SocialConnectorException}s whose error code is retryable.
+     * When attempts are exhausted the last exception is rethrown unchanged, so callers
+     * see the real cause (e.g. PLATFORM_UNAVAILABLE). Other runtime exceptions are wrapped
+     * in OPERATION_FAILED without retrying.
      *
      * @param operation operation to execute
      * @param <T>       return type
      * @return operation result
-     * @throws SocialConnectorException if all retries fail
+     * @throws SocialConnectorException if the operation fails
      */
     public <T> T execute(Supplier<T> operation) throws SocialConnectorException {
-        int attempt = 0;
+        int attempts = Math.max(1, maxAttempts);
         long delay = initialDelayMs;
-        Throwable lastException = null;
 
-        while (attempt < maxAttempts) {
-            attempt++;
-
+        for (int attempt = 1; ; attempt++) {
             try {
-                log.debug("Executing operation - attempt {}/{}", attempt, maxAttempts);
+                log.debug("Executing operation - attempt {}/{}", attempt, attempts);
                 return operation.get();
 
             } catch (SocialConnectorException e) {
-                lastException = e;
-
-                // Don't retry on non-retryable errors
-                if (!isRetryable(e.getErrorCode())) {
-                    log.warn("Non-retryable error on attempt {}: {}", attempt, e.getMessage());
+                if (!e.getErrorCode().isRetryable()) {
+                    log.debug("Non-retryable error on attempt {}: {}", attempt, e.getMessage());
                     throw e;
                 }
 
-                // Don't retry if max attempts reached
-                if (attempt >= maxAttempts) {
-                    log.error("Max retry attempts ({}) exceeded", maxAttempts);
-                    break;
+                if (attempt >= attempts) {
+                    log.error("Operation failed after {} attempts: {}", attempts, e.getMessage());
+                    throw e;
                 }
 
-                // Log and wait before retry
                 log.warn("Retryable error on attempt {}/{}: {}. Retrying in {}ms",
-                        attempt, maxAttempts, e.getMessage(), delay);
+                        attempt, attempts, e.getMessage(), delay);
 
                 sleep(delay);
-
-                // Exponential backoff
                 delay = Math.min((long) (delay * backoffMultiplier), maxDelayMs);
 
-            } catch (Exception e) {
-                lastException = e;
+            } catch (RuntimeException e) {
                 log.error("Unexpected error on attempt {}: {}", attempt, e.getMessage());
-
-                // Wrap unexpected exceptions
                 throw new SocialConnectorException(
                         SocialConnectorErrorCode.OPERATION_FAILED,
-                        "Operation failed after " + attempt + " attempts",
+                        "Unexpected error on attempt " + attempt,
                         e
                 );
             }
         }
-
-        // All retries failed
-        log.error("Operation failed after {} attempts", maxAttempts);
-        throw new SocialConnectorException(
-                SocialConnectorErrorCode.OPERATION_FAILED,
-                "Operation failed after " + maxAttempts + " retry attempts",
-                lastException
-        );
-    }
-
-    /**
-     * Determine if an error is retryable.
-     * <p>
-     * Retryable errors:
-     * - Network errors
-     * - API call failures (temporary)
-     * - Platform unavailable
-     * <p>
-     * Non-retryable errors:
-     * - Authentication failures
-     * - Invalid credentials
-     * - Resource not found
-     * - Rate limit exceeded (should use backoff instead)
-     *
-     * @param errorCode error code to check
-     * @return true if retryable
-     */
-    private boolean isRetryable(SocialConnectorErrorCode errorCode) {
-        return switch (errorCode) {
-            // Retryable errors
-            case NETWORK_ERROR,
-                 API_CALL_FAILED,
-                 PLATFORM_UNAVAILABLE,
-                 UNKNOWN_ERROR -> true;
-
-            // Non-retryable errors
-            case AUTHENTICATION_FAILED,
-                 INVALID_CREDENTIALS,
-                 TOKEN_EXPIRED,
-                 INSUFFICIENT_PERMISSIONS,
-                 RATE_LIMIT_EXCEEDED,
-                 QUOTA_EXCEEDED,
-                 RESOURCE_NOT_FOUND,
-                 POST_NOT_FOUND,
-                 COMMENT_NOT_FOUND,
-                 USER_NOT_FOUND,
-                 UNSUPPORTED_PLATFORM,
-                 DATA_VALIDATION_FAILED,
-                 CONFIGURATION_ERROR,
-                 MISSING_CONFIGURATION -> false;
-
-            // Default: retry on unknown errors
-            default -> {
-                log.debug("Unknown error code {}, treating as retryable", errorCode);
-                yield true;
-            }
-        };
     }
 
     /**
@@ -207,6 +145,9 @@ public class RetryPolicy {
      * @param millis milliseconds to sleep
      */
     private void sleep(long millis) {
+        if (millis <= 0) {
+            return;
+        }
         try {
             Thread.sleep(millis);
         } catch (InterruptedException e) {

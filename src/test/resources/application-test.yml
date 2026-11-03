@@ -40,3 +40,20 @@ logging:
     rolling-policy:
       max-file-size: 10MB
       max-history: 30
+
+# Social accounts: fixed test-only key, no scheduled jobs
+social-account:
+  # 32 ASCII bytes "test-key-test-key-test-key-12345", base64 encoded. Test use only.
+  token-encryption-key: dGVzdC1rZXktdGVzdC1rZXktdGVzdC1rZXktMTIzNDU=
+  oauth:
+    state-secret: test-state-secret
+  token-refresh:
+    enabled: false
+
+social-connector:
+  retry:
+    initial-delay: 0s
+  instagram:
+    client-id: test-client-id
+    client-secret: test-client-secret
+    redirect-uri: http://localhost:8080/api/v1/social-accounts/oauth/instagram/callback

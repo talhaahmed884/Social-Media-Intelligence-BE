@@ -1,520 +1,184 @@
-# Social Connector Domain - Architecture Guide
+# Social Connector & Social Accounts - Guide
 
 ## Overview
 
-The Social Connector Domain is a comprehensive **Anti-Corruption Layer** that shields our application from external
-social media API changes. It implements multiple design patterns to create a robust, extensible, and maintainable
-integration layer.
+Two packages work together:
+
+| Package             | Role                                                                                          |
+|---------------------|-----------------------------------------------------------------------------------------------|
+| `social_connector/` | **Anti-Corruption Layer** for platform APIs: HTTP, JSON mapping, OAuth, errors, retry, rate limits. Stores nothing. |
+| `social_account/`   | Links platform accounts to users, stores tokens **encrypted**, refreshes them, exposes REST endpoints. |
+
+Status: Instagram is implemented and tested with mocked HTTP. It has **not been run against the live Instagram API
+yet**.
 
 ---
 
-## Design Patterns Implemented
+## Quick Start: Link an Instagram Account
 
-### 1. **Adapter Pattern** 🔌
+### 1. Configure
 
-- **Interface**: `SocialMediaProvider` - Our unified contract
-- **Adapters**: `InstagramConnector`, `TwitterConnector` (future)
-- **Purpose**: Translate platform-specific APIs to our domain interface
-- **Benefit**: Change Instagram's API without touching our application code
+Set the following environment variables (or the matching keys in `application.yml`):
 
-### 2. **Template Method Pattern** 📋
+| Variable                       | Needed for       | Notes                                                        |
+|--------------------------------|------------------|--------------------------------------------------------------|
+| `SOCIAL_TOKEN_ENCRYPTION_KEY`  | Linking at all   | `openssl rand -base64 32`. Changing it invalidates stored tokens. |
+| `INSTAGRAM_CLIENT_ID`          | OAuth flow       | Instagram App ID (Meta App Dashboard → Instagram → API setup with Instagram login) |
+| `INSTAGRAM_CLIENT_SECRET`      | OAuth flow       | Instagram App secret                                         |
+| `INSTAGRAM_REDIRECT_URI`       | OAuth flow       | Must **exactly** match a redirect URI registered in the dashboard. Default: `http://localhost:8080/api/v1/social-accounts/oauth/instagram/callback` |
+| `SOCIAL_OAUTH_STATE_SECRET`    | Multi-instance   | Optional for a single instance                               |
 
-- **Abstract Class**: `AbstractSocialConnector`
-- **Fixed Algorithm**:
-    1. `validateAuth()` - Verify authentication
-    2. `checkRateLimit()` - Apply rate limiting
-    3. `callExternalApi()` - Platform-specific API call (abstract)
-    4. `parseResponse()` - Platform-specific parsing (abstract)
-    5. `sanitizeData()` - Clean and validate data
-- **Purpose**: Enforce consistent data fetching flow across all platforms
-- **Benefit**: Common resilience and sanitization logic in one place
+Apply the new `social_accounts` table from `src/main/resources/schema.sql` to Postgres.
 
-### 3. **Factory Pattern** 🏭
+The account must be an Instagram **professional** (Business or Creator) account. Meta may require an HTTPS redirect
+URI; for local testing, a tunnel (for example ngrok) pointing at the callback works.
 
-- **Factory**: `SocialConnectorFactory`
-- **Purpose**: Centralize connector creation
-- **Features**:
-    - Simple factory method: `createConnector(SocialPlatform)`
-    - Fluent builder API: `forPlatform().withRetryPolicy().build()`
-    - Connection pooling: Cached connector instances
-- **Benefit**: Easy to add new platforms, consistent configuration
+### 2a. Link via OAuth (normal flow)
 
-### 4. **Strategy Pattern** 🎯
-
-- **Strategies**: `RateLimiter`, `RetryPolicy`
-- **Purpose**: Pluggable resilience mechanisms
-- **Policies**:
-    - `RetryPolicy.defaultPolicy()` - Standard retry
-    - `RetryPolicy.aggressivePolicy()` - More retries for critical ops
-    - `RetryPolicy.conservativePolicy()` - Fewer retries for non-critical
-- **Benefit**: Different resilience strategies per use case
-
-### 5. **Builder Pattern** 🔨
-
-- **Builders**: All DTOs use `@Builder` annotation
-- **Factory Builder**: `ConnectorBuilder` for fluent API
-- **Purpose**: Readable object construction
-- **Benefit**: Clear, self-documenting code
-
----
-
-## Architecture Diagram
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                   Application Layer                       │
-│            (Services, Controllers, etc.)                  │
-└────────────────────┬─────────────────────────────────────┘
-                     │
-                     │ Uses Interface
-                     ▼
-          ┌──────────────────────────┐
-          │  SocialMediaProvider     │ ◄─── Our Domain Contract
-          │      (Interface)         │
-          └──────────────────────────┘
-                     △
-                     │ Implements
-      ┌──────────────┼──────────────┐
-      │              │              │
-┌─────▼─────┐  ┌────▼─────┐  ┌────▼─────┐
-│Instagram  │  │Twitter   │  │Facebook  │  ◄─── Adapters
-│Connector  │  │Connector │  │Connector │
-└─────┬─────┘  └────┬─────┘  └────┬─────┘
-      │             │              │
-      │    extends AbstractSocialConnector
-      │             │              │
-      └─────────────┼──────────────┘
-                    │
-          ┌─────────▼──────────┐
-          │ Template Method    │ ◄─── Enforced Flow
-          │ + Sanitization     │
-          │ + Rate Limiting    │
-          │ + Retry Logic      │
-          └────────────────────┘
+```http
+POST /api/v1/users/{userId}/social-accounts/instagram/authorize
+→ { "data": { "platform": "INSTAGRAM", "authorizationUrl": "https://www.instagram.com/oauth/authorize?..." } }
 ```
 
+Open `authorizationUrl` in a browser and approve. Instagram then redirects to:
+
+```http
+GET /api/v1/social-accounts/oauth/instagram/callback?code=...&state=...
+→ { "data": { "id": "...", "platform": "INSTAGRAM", "username": "...", "status": "ACTIVE", "tokenExpiresAt": "..." } }
+```
+
+The backend exchanges the code for a short-lived token, upgrades it to a 60-day token, and stores it encrypted.
+
+### 2b. Link with an existing token (quick testing)
+
+Generate a token in the Meta App Dashboard, then:
+
+```http
+POST /api/v1/users/{userId}/social-accounts/instagram/token
+{ "accessToken": "IGAA..." }
+→ 201 { "data": { "id": "...", "status": "ACTIVE", "tokenExpiresAt": null } }
+```
+
+The expiry stays unknown until the first scheduled refresh.
+
+### 3. Use it
+
+| Method | Path (prefix `/api/v1/users/{userId}/social-accounts`) | Returns                      |
+|--------|---------------------------------------------------------|------------------------------|
+| GET    | ``                                                      | Linked accounts (no tokens)  |
+| GET    | `/{socialAccountId}/posts?limit=25`                     | The account's media (≤ 50)   |
+| GET    | `/{socialAccountId}/posts/{postId}`                     | One post                     |
+| GET    | `/{socialAccountId}/posts/{postId}/comments?limit=25`   | Comments (≤ 50)              |
+| DELETE | `/{socialAccountId}`                                    | Unlink                       |
+
+Data is fetched live and not persisted yet.
+
 ---
 
-## Package Structure
+## Token Lifecycle
+
+```
+OAuth code ──exchange──► short-lived (1h) ──ig_exchange_token──► long-lived (60 days)
+                                                                       │
+                     SocialTokenRefreshJob (daily, 03:00 UTC) ◄────────┘
+                     refreshes ACTIVE tokens ≥ 24h old that expire within 10 days (or have unknown expiry)
+```
+
+When the platform rejects a token, the backend checks whether the stored token changed while the request was in
+flight (for example, the refresh job just rotated it). If it did, the request is retried **once** with the new
+token. Otherwise (revoked, expired, password changed) the account becomes `REAUTH_REQUIRED`, and fetches return
+**409 `SACC_007`** until the user links the account again, using either link flow.
+
+Instagram can't refresh a token that is already expired or revoked, so refreshing after an error would not help.
+That is why refresh happens on a schedule, before expiry.
+
+---
+
+## Errors
+
+All errors use the standard `ErrorResponse` (`errorCode`, `message`):
+
+| Situation                                        | Code                 | HTTP |
+|--------------------------------------------------|----------------------|------|
+| Social token invalid / expired                   | `SC1001` / `SC1003`  | 401  |
+| Missing Instagram permission                     | `SC1004`             | 403  |
+| Local or platform rate limit                     | `SC2001`             | 429  |
+| Post not found                                   | `SC4001`             | 404  |
+| Platform down / network (after retries)          | `SC5002` / `SC3004`  | 503  |
+| Unknown platform in path                         | `SC5001`             | 400  |
+| OAuth not configured                             | `SC7002`             | 500  |
+| Social account not found / not yours             | `SACC_001`           | 404  |
+| Invalid or expired authorization link            | `SACC_003`           | 400  |
+| User denied access on Instagram                  | `SACC_004`           | 400  |
+| Encryption key not set                           | `SACC_005`           | 500  |
+| Account needs re-linking                         | `SACC_007`           | 409  |
+
+An `SC1xxx` 401 means the **social account** needs re-authorization, not the app session.
+
+---
+
+## Connector Architecture
+
+| Pattern             | Where                                                    |
+|---------------------|----------------------------------------------------------|
+| **Adapter**         | `SocialMediaProvider` / `SocialOAuthProvider` ← `InstagramConnector` |
+| **Template Method** | `AbstractSocialConnector<R>.fetch(...)`: validate → (rate limit + call) with retry → parse → sanitize |
+| **Registry**        | `SocialConnectorFactory`: Spring collects connector beans; OAuth support is detected by interface |
+| **Strategy**        | `RetryPolicy`, `RateLimiter` (configurable)              |
 
 ```
 social_connector/
-├── provider/
-│   ├── SocialMediaProvider.java      # Core interface
-│   └── SocialPlatform.java           # Platform enum
-├── connector/
-│   ├── AbstractSocialConnector.java  # Template method
-│   └── InstagramConnector.java       # Instagram adapter
-├── factory/
-│   └── SocialConnectorFactory.java   # Factory + Builder
-├── dto/
-│   ├── SocialAuthRequest.java
-│   ├── SocialAuthResponse.java
-│   ├── SocialComment.java
-│   └── SocialPost.java
-├── exception/
-│   ├── SocialConnectorException.java
-│   └── SocialConnectorErrorCode.java
-└── resilience/
-    ├── RateLimiter.java              # Rate limiting strategy
-    └── RetryPolicy.java              # Retry strategy
+├── provider/      SocialMediaProvider, SocialOAuthProvider, SocialPlatform
+├── connector/     AbstractSocialConnector<R>
+│   └── instagram/ InstagramConnector, InstagramApiClient (RestClient), InstagramErrorMapper,
+│                  InstagramResponseParser, InstagramProperties, InstagramConfig
+├── factory/       SocialConnectorFactory
+├── config/        SocialConnectorProperties, SocialConnectorConfig
+├── resilience/    RateLimiter, RetryPolicy
+├── dto/           SocialCredentials, SocialToken, SocialAuthRequest/Response, SocialPost, SocialComment
+└── exception/     SocialConnectorErrorCode, SocialConnectorException
 ```
 
----
-
-## Usage Examples
-
-### Basic Usage
-
-```java
-// 1. Create connector using factory
-SocialMediaProvider instagram = SocialConnectorFactory.createConnector(
-                SocialPlatform.INSTAGRAM
-        );
-
-// 2. Authenticate
-SocialAuthRequest authRequest = SocialAuthRequest.builder()
-        .platform(SocialPlatform.INSTAGRAM)
-        .accessToken("your-instagram-access-token")
-        .build();
-
-SocialAuthResponse authResponse = instagram.connect(authRequest);
-System.out.
-
-println("Connected as: "+authResponse.getUsername());
-
-// 3. Fetch comments (Template Method executes)
-List<SocialComment> comments = instagram.fetchComments("post-id-123", 50);
-
-// 4. Data is automatically sanitized
-comments.
-
-forEach(comment ->{
-        System.out.
-
-println("Comment: "+comment.getText());
-        System.out.
-
-println("Sanitized: "+comment.isSanitized()); // true
-        });
-
-// 5. Disconnect
-        instagram.
-
-disconnect();
-```
-
-### Advanced Usage with Custom Configuration
-
-```java
-// Custom retry policy for critical operations
-RetryPolicy aggressiveRetry = RetryPolicy.builder()
-                .maxAttempts(5)
-                .initialDelayMs(500)
-                .backoffMultiplier(2.0)
-                .maxDelayMs(60000)
-                .build();
-
-// Create connector with custom configuration
-SocialMediaProvider instagram = SocialConnectorFactory
-        .forPlatform(SocialPlatform.INSTAGRAM)
-        .withRetryPolicy(aggressiveRetry)
-        .build();
-```
-
-### Connection Pooling (Cached Connectors)
-
-```java
-// Reuse connector instance across requests
-SocialMediaProvider instagram1 = SocialConnectorFactory
-                .forPlatform(SocialPlatform.INSTAGRAM)
-                .cached()  // ← Reuses existing instance
-                .build();
-
-SocialMediaProvider instagram2 = SocialConnectorFactory
-        .forPlatform(SocialPlatform.INSTAGRAM)
-        .cached()
-        .build();
-
-// instagram1 == instagram2 (same instance)
-```
-
-### Fetching Posts
-
-```java
-// Fetch user's recent posts
-List<SocialPost> posts = instagram.fetchPosts("user-id-123", 20);
-
-posts.
-
-forEach(post ->{
-        System.out.
-
-println("Post: "+post.getCaption());
-        System.out.
-
-println("Likes: "+post.getLikes());
-        System.out.
-
-println("Comments: "+post.getCommentCount());
-        System.out.
-
-println("Platform: "+post.getPlatform()); // INSTAGRAM
-        });
-```
-
-### Error Handling
-
-```java
-try{
-List<SocialComment> comments = instagram.fetchComments("invalid-id", 10);
-}catch(
-SocialConnectorException e){
-        switch(e.
-
-getErrorCode()){
-        case RATE_LIMIT_EXCEEDED:
-        System.err.
-
-println("Rate limit hit! Wait before retrying");
-            break;
-                    case AUTHENTICATION_FAILED:
-        System.err.
-
-println("Auth failed. Refresh token needed");
-            break;
-                    case POST_NOT_FOUND:
-        System.err.
-
-println("Post not found");
-            break;
-default:
-        System.err.
-
-println("Error: "+e.getFormattedMessage());
-        }
-        }
-```
-
----
-
-## How It Works: Template Method Flow
-
-When you call `fetchComments()`, here's what happens:
-
-```
-1. validateAuth()
-   └─> Check if connected
-   └─> Check if token expired
-
-2. checkRateLimit()
-   └─> Verify we haven't exceeded platform limits
-   └─> Apply delay if needed
-
-3. callExternalApi()  ← Platform-Specific (InstagramConnector)
-   └─> Build Instagram Graph API URL
-   └─> Execute HTTP GET request
-   └─> Handle 401, 429, 404, 5xx responses
-   └─> Return raw JSON response
-
-4. parseResponse()  ← Platform-Specific (InstagramConnector)
-   └─> Parse JSON into SocialComment objects
-   └─> Map Instagram fields to our domain model
-   └─> Extract id, text, username, timestamp, etc.
-
-5. sanitizeData()  ← Common (AbstractSocialConnector)
-   └─> Remove <script> tags
-   └─> Remove HTML tags
-   └─> Escape HTML entities
-   └─> Trim whitespace
-   └─> Set sanitized = true
-
-6. Return clean List<SocialComment>
-```
-
----
-
-## Resilience Features
-
-### Rate Limiting
-
-```java
-// Automatic rate limiting per platform
-RateLimiter rateLimiter = new RateLimiter();
-
-// Instagram: 200 calls/hour
-// Twitter: 300 calls/15min
-// Facebook: 200 calls/hour
-// LinkedIn: 100 calls/day
-
-// Check before API call
-rateLimiter.
-
-checkRateLimit(SocialPlatform.INSTAGRAM);
-
-// Get remaining calls
-int remaining = rateLimiter.getRemainingRequests(SocialPlatform.INSTAGRAM);
-```
-
-### Retry with Exponential Backoff
-
-```java
-RetryPolicy policy = RetryPolicy.defaultPolicy();
-
-// Retryable errors:
-// - Network errors
-// - API call failures (5xx)
-// - Platform unavailable
-
-// Non-retryable errors:
-// - Authentication failures
-// - Rate limit exceeded (should wait instead)
-// - Resource not found (404)
-// - Invalid credentials
-
-// Automatic retry with backoff:
-// Attempt 1: immediate
-// Attempt 2: wait 1000ms
-// Attempt 3: wait 2000ms
-// Attempt 4: wait 4000ms (up to maxDelay)
-```
-
----
-
-## Anti-Corruption Layer Benefits
-
-### 1. **Protection from External Changes**
-
-```
-Instagram changes API response format:
-└─> Update only InstagramConnector.parseCommentsResponse()
-└─> Application code unchanged
-```
-
-### 2. **Consistent Domain Model**
-
-```
-All platforms return:
-└─> SocialComment (our model)
-└─> Not InstagramComment, TwitterTweet, etc.
-```
-
-### 3. **Unified Error Handling**
-
-```
-All connectors throw:
-└─> SocialConnectorException (our exception)
-└─> With SocialConnectorErrorCode (our codes)
-```
-
-### 4. **Centralized Resilience**
-
-```
-Rate limiting + Retry logic:
-└─> Implemented once in AbstractSocialConnector
-└─> Applied to all platforms automatically
+Connectors are **stateless**. Every call takes `SocialCredentials`, so one bean serves all users.
+`SocialAccountService` loads and decrypts the account's token and passes it in.
+
+### Configuration (`social-connector.*`)
+
+```yaml
+social-connector:
+  http: { connect-timeout: 10s, read-timeout: 30s }
+  retry: { max-attempts: 3, initial-delay: 1s, backoff-multiplier: 2.0, max-delay: 30s }
+  rate-limits:            # optional overrides of the local per-account guard
+    instagram: { max-requests: 200, window: 1h }
+  instagram:
+    api-version: v26.0
+    client-id: ...
+    client-secret: ...
+    redirect-uri: ...
 ```
 
 ---
 
 ## Adding a New Platform
 
-To add Twitter support:
+1. Create `connector/<platform>/` with a `@Component XConnector extends AbstractSocialConnector<R>`, adding
+   `implements SocialOAuthProvider` if the platform supports OAuth. Put the HTTP client, error mapper, parser,
+   properties and config classes next to it, following the Instagram files.
+2. Map the platform's error bodies to `SocialConnectorErrorCode`. Only network and unavailable errors should be
+   retryable.
+3. Add default rate limits and an `application.yml` block.
+4. Add tests using `MockRestServiceServer` (no network).
 
-```java
-// 1. Create TwitterConnector.java
-public class TwitterConnector extends AbstractSocialConnector {
-
-    @Override
-    protected SocialAuthResponse authenticateWithPlatform(SocialAuthRequest request) {
-        // Twitter-specific OAuth 2.0 authentication
-        // Use Twitter API v2 endpoints
-    }
-
-    @Override
-    protected String callExternalApiForComments(String postId, int limit) {
-        // Call Twitter API: GET /2/tweets/:id/replies
-        // Return raw JSON
-    }
-
-    @Override
-    protected List<SocialComment> parseCommentsResponse(String rawResponse) {
-        // Parse Twitter JSON format
-        // Map to SocialComment
-    }
-
-    // Implement other abstract methods...
-}
-
-// 2. Update SocialConnectorFactory
-case TWITTER ->new
-
-TwitterConnector(rateLimiter, retryPolicy);
-
-// 3. Done! Ready to use:
-SocialMediaProvider twitter = SocialConnectorFactory.createConnector(
-        SocialPlatform.TWITTER
-);
-```
+The factory and `social_account` endpoints pick up the new platform automatically through `{platform}` in the
+path.
 
 ---
 
-## Testing Strategy
+## Instagram Notes
 
-### Unit Tests
-
-- Test `RateLimiter` logic
-- Test `RetryPolicy` retry attempts
-- Test sanitization methods
-- Mock external API calls
-
-### Integration Tests
-
-- Test actual Instagram API calls (with test credentials)
-- Test rate limit enforcement
-- Test retry on transient failures
-- Test error code mapping
-
-### Example Test
-
-```java
-
-@Test
-void shouldSanitizeXSSAttack() {
-    InstagramConnector connector = new InstagramConnector();
-
-    String malicious = "<script>alert('XSS')</script>Hello";
-    String sanitized = connector.sanitizeText(malicious);
-
-    assertEquals("Hello", sanitized);
-    assertFalse(sanitized.contains("<script>"));
-}
-```
-
----
-
-## Production Considerations
-
-### Current Implementation
-
-✅ Synchronous HTTP calls
-✅ Thread.sleep () for rate limiting
-✅ In-memory rate limit tracking
-✅ Basic retry with exponential backoff
-
-### Production Enhancements
-
-🔧 **Resilience4j** - Industry-standard resilience library
-🔧 **Circuit Breaker** - Prevent cascading failures
-🔧 **Redis** - Distributed rate limiting
-🔧 **WebClient** - Reactive non-blocking HTTP
-🔧 **Micrometer** - Metrics and monitoring
-🔧 **Spring Retry** - `@Retryable` annotations
-
-### Example with Resilience4j
-
-```java
-// Add to pom.xml:
-// <dependency>
-//     <groupId>io.github.resilience4j</groupId>
-//     <artifactId>resilience4j-spring-boot3</artifactId>
-// </dependency>
-
-@CircuitBreaker(name = "instagram", fallbackMethod = "fallbackFetchComments")
-@RateLimiter(name = "instagram")
-@Retry(name = "instagram")
-public List<SocialComment> fetchComments(String postId, int limit) {
-    // Automatic resilience handling
-}
-```
-
----
-
-## Key Takeaways
-
-1. **Single Responsibility**: Each class has one reason to change
-2. **Open/Closed**: Open for extension (new platforms), closed for modification
-3. **Dependency Inversion**: Application depends on abstractions, not concrete adapters
-4. **Don't Repeat Yourself**: Common logic in AbstractSocialConnector
-5. **Separation of Concerns**: Parsing != Sanitization != Rate Limiting
-
-**Result**: A robust, maintainable, and extensible social media integration layer! 🚀
-
----
-
-## Quick Reference
-
-| Task             | Code                                                               |
-|------------------|--------------------------------------------------------------------|
-| Create connector | `SocialConnectorFactory.createConnector(SocialPlatform.INSTAGRAM)` |
-| Authenticate     | `connector.connect(authRequest)`                                   |
-| Fetch comments   | `connector.fetchComments(postId, limit)`                           |
-| Fetch posts      | `connector.fetchPosts(userId, limit)`                              |
-| Check connection | `connector.isConnected()`                                          |
-| Get rate limit   | `connector.getRateLimitRemaining()`                                |
-| Disconnect       | `connector.disconnect()`                                           |
-| Handle errors    | `catch (SocialConnectorException e)`                               |
-
----
-
-**Built with enterprise design patterns and SOLID principles** 🏗️
+- API: Instagram API with Instagram Login, `https://graph.instagram.com/v26.0`. Scopes:
+  `instagram_business_basic` and `instagram_business_manage_comments`.
+- The token is sent as the `access_token` query parameter (the documented method). Request URIs are never logged.
+- Errors are mapped from the Graph error body (`error.code` / `error_subcode`), not just the HTTP status.
+- The comments edge returns at most 50 per request.
+- `caption` on media is documented as Facebook-Login-only. Verify it against the live API.

@@ -1,5 +1,8 @@
 package com.media.intelligence.social_connector.provider;
 
+import com.media.intelligence.social_connector.exception.SocialConnectorErrorCode;
+import com.media.intelligence.social_connector.exception.SocialConnectorException;
+
 /**
  * Enum representing supported social media platforms.
  * <p>
@@ -52,6 +55,25 @@ public enum SocialPlatform {
             }
         }
         throw new IllegalArgumentException("Unknown social platform: " + name);
+    }
+
+    /**
+     * Get platform from an API path/query value such as "instagram" (case-insensitive enum name).
+     *
+     * @param value platform name
+     * @return SocialPlatform enum
+     * @throws SocialConnectorException UNSUPPORTED_PLATFORM if no platform matches
+     */
+    public static SocialPlatform fromValue(String value) {
+        for (SocialPlatform platform : values()) {
+            if (platform.name().equalsIgnoreCase(value)) {
+                return platform;
+            }
+        }
+        throw new SocialConnectorException(
+                SocialConnectorErrorCode.UNSUPPORTED_PLATFORM,
+                "Unknown social platform: " + value
+        );
     }
 
     public String getDisplayName() {

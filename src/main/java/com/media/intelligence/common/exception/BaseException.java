@@ -63,6 +63,20 @@ public abstract class BaseException extends RuntimeException {
     }
 
     /**
+     * Constructor with ErrorCode, a detailed internal message, and cause.
+     * The detailed message is only used for logging; API responses still use errorCode.getMessage().
+     *
+     * @param errorCode     the error code defining the error type
+     * @param detailMessage the exception message (e.g. error code message plus internal context)
+     * @param cause         the underlying cause of this exception (may be null)
+     */
+    protected BaseException(ErrorCode errorCode, String detailMessage, Throwable cause) {
+        super(detailMessage, cause);
+        this.errorCode = errorCode;
+        this.httpStatus = errorCode.getHttpStatus();
+    }
+
+    /**
      * Constructor with ErrorCode, explicit HTTP status, and cause.
      * Use this only when you need to override the default status from ErrorCode.
      *

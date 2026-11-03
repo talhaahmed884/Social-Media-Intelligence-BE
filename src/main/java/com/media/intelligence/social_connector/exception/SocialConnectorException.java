@@ -1,5 +1,6 @@
 package com.media.intelligence.social_connector.exception;
 
+import com.media.intelligence.common.exception.BaseException;
 import lombok.Getter;
 
 /**
@@ -8,13 +9,16 @@ import lombok.Getter;
  * Wraps all errors that occur during social media platform integration,
  * providing consistent error handling across adapters.
  * <p>
+ * Extends {@link BaseException}, so the GlobalExceptionHandler returns the error code's
+ * HTTP status and message. {@link #getDetails()} carries internal context for logs only
+ * and is never sent to API clients.
+ * <p>
  * **Exception Translation Pattern**: Translates platform-specific exceptions
  * into our domain exception, maintaining the Anti-Corruption Layer.
  */
-@Getter
-public class SocialConnectorException extends RuntimeException {
+public class SocialConnectorException extends BaseException {
 
-    private final SocialConnectorErrorCode errorCode;
+    @Getter
     private final String details;
 
     /**
@@ -23,8 +27,7 @@ public class SocialConnectorException extends RuntimeException {
      * @param errorCode specific error code
      */
     public SocialConnectorException(SocialConnectorErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+        super(errorCode);
         this.details = null;
     }
 
@@ -35,8 +38,7 @@ public class SocialConnectorException extends RuntimeException {
      * @param details   additional error context
      */
     public SocialConnectorException(SocialConnectorErrorCode errorCode, String details) {
-        super(errorCode.getMessage() + ": " + details);
-        this.errorCode = errorCode;
+        super(errorCode, buildMessage(errorCode, details), null);
         this.details = details;
     }
 
@@ -47,9 +49,8 @@ public class SocialConnectorException extends RuntimeException {
      * @param cause     underlying exception
      */
     public SocialConnectorException(SocialConnectorErrorCode errorCode, Throwable cause) {
-        super(errorCode.getMessage(), cause);
-        this.errorCode = errorCode;
-        this.details = cause.getMessage();
+        super(errorCode, cause);
+        this.details = cause != null ? cause.getMessage() : null;
     }
 
     /**
@@ -60,9 +61,18 @@ public class SocialConnectorException extends RuntimeException {
      * @param cause     underlying exception
      */
     public SocialConnectorException(SocialConnectorErrorCode errorCode, String details, Throwable cause) {
-        super(errorCode.getMessage() + ": " + details, cause);
-        this.errorCode = errorCode;
+        super(errorCode, buildMessage(errorCode, details), cause);
         this.details = details;
+    }
+
+    private static String buildMessage(SocialConnectorErrorCode errorCode, String details) {
+        return details != null ? errorCode.getMessage() + ": " + details : errorCode.getMessage();
+    }
+
+    @Override
+    public SocialConnectorErrorCode getErrorCode() {
+        // Safe: every constructor only accepts SocialConnectorErrorCode
+        return (SocialConnectorErrorCode) super.getErrorCode();
     }
 
     /**
@@ -72,8 +82,8 @@ public class SocialConnectorException extends RuntimeException {
      */
     public String getFormattedMessage() {
         return String.format("[%s] %s%s",
-                errorCode.getCode(),
-                errorCode.getMessage(),
+                getErrorCode().getCode(),
+                getErrorCode().getMessage(),
                 details != null ? ": " + details : "");
     }
 }
